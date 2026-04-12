@@ -1,4 +1,4 @@
-"""Pytest fixtures: TestClient runs FastAPI lifespan (demo dataset load)."""
+"""Pytest fixtures: TestClient runs FastAPI lifespan."""
 
 import pytest
 from fastapi.testclient import TestClient

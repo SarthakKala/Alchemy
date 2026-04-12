@@ -4,17 +4,11 @@
 
 ## Overview
 
-Talk to Data is an AI-powered self-service intelligence layer built for NatWest-style branch and product analytics. Business users ask plain-English questions about uploaded CSV data (or a pre-loaded demo dataset) and receive answers with optional charts, confidence indicators, and full SQL transparency. Intended users are analysts and business stakeholders who need fast, auditable insights without writing SQL.
+Talk to Data is an AI-powered self-service intelligence layer for analytics-style CSVs. Business users ask plain-English questions about **uploaded** CSV data and receive answers with optional charts, confidence indicators, and full SQL transparency. Intended users are analysts and business stakeholders who need fast, auditable insights without writing SQL.
 
-## Demo
+## Workflow
 
-The app loads a pre-built **NatWest branch performance** CSV (`backend/data/natwest_branch_performance_2024.csv`) into session `natwest-demo` on backend startup. With the backend running, the frontend skips the upload screen when `GET /api/upload/default-session` reports `available: true`.
-
-Try asking:
-
-- "Why did revenue drop in the South West region in March 2024?"
-- "Compare North vs London revenue across all months"
-- "Show the breakdown of complaints by region"
+Upload a CSV on the home screen, then ask questions in natural language. Starter questions are generated from the detected schema.
 
 ## Features
 
@@ -23,7 +17,7 @@ Try asking:
 - Editable semantic layer (`backend/data/metrics.json`) with GET/PUT `/api/metrics/`
 - "How was this calculated?" drawer showing generated SQL, columns, and row count
 - Confidence badge (high / medium / low) with short reasons
-- Auto starter questions after upload or when loading the demo session
+- Auto starter questions after each upload
 - Dynamic charts (bar, line, pie, stat) via Recharts
 - Rate-limit aware API client (429) on the frontend
 
@@ -74,13 +68,7 @@ pytest tests -v
 
 ## Usage Examples
 
-**Default session (after backend start):**
-
-```http
-GET http://localhost:8000/api/upload/default-session
-```
-
-**Upload CSV:**
+**Upload CSV** (returns `session_id` and `table_name` — use those in the query below):
 
 ```http
 POST http://localhost:8000/api/upload/
@@ -96,11 +84,19 @@ POST http://localhost:8000/api/query/
 Content-Type: application/json
 
 {
-  "session_id": "natwest-demo",
-  "table_name": "session_natwest_demo",
-  "user_query": "What is total revenue_gbp by region?"
+  "session_id": "<from upload response>",
+  "table_name": "<from upload response>",
+  "user_query": "What is total revenue by region?"
 }
 ```
+
+### Clear uploaded tables in Supabase (PostgreSQL)
+
+Uploads create tables named `session_*`. To remove them all from your Supabase project, open **SQL Editor** and run `docs/clear_supabase_session_tables.sql` (review first if you have unrelated tables with the same prefix).
+
+### Clear local SQLite cache
+
+If you use the default `DATABASE_URL` pointing at `./fallback.db`, delete `backend/fallback.db` while the backend is stopped to wipe local session data.
 
 ## Architecture
 

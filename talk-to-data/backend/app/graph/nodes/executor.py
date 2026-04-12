@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 from app.core.database import get_session
 from app.graph.state import GraphState
+from app.utils.json_safe import json_safe_row
 
 
 def execute_sql(state: GraphState) -> GraphState:
@@ -21,7 +22,9 @@ def execute_sql(state: GraphState) -> GraphState:
             columns = list(result.keys())
             rows = result.fetchmany(500)
 
-        raw_results = [dict(zip(columns, row)) for row in rows]
+        raw_results = [
+            json_safe_row(dict(zip(columns, row))) for row in rows
+        ]
 
         return {
             **state,

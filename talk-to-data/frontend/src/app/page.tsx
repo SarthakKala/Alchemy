@@ -1,25 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { SchemaPreview } from '@/components/upload/SchemaPreview';
 import { UploadZone } from '@/components/upload/UploadZone';
 import { QueryHistory } from '@/components/sidebar/QueryHistory';
 import { MetricEditor } from '@/components/semantic/MetricEditor';
-import { getDefaultSession } from '@/lib/api';
 import type { HistoryItem, UploadResponse } from '@/lib/types';
 
 export default function HomePage() {
   const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [checkingDemo, setCheckingDemo] = useState(true);
-
-  useEffect(() => {
-    getDefaultSession().then((session) => {
-      if (session) setUploadData(session);
-      setCheckingDemo(false);
-    });
-  }, []);
 
   const handleUploadComplete = (data: UploadResponse) => {
     setUploadData(data);
@@ -29,14 +20,6 @@ export default function HomePage() {
   const addToHistory = (item: HistoryItem) => {
     setHistory((prev) => [item, ...prev]);
   };
-
-  if (checkingDemo) {
-    return (
-      <main className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <p className="text-zinc-500 text-sm">Loading...</p>
-      </main>
-    );
-  }
 
   if (!uploadData) {
     return (

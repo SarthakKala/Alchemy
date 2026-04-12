@@ -7,7 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # backend/ directory (parent of app/)
 BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BACKEND_ROOT / "data"
-DEFAULT_DEMO_CSV = DATA_DIR / "natwest_branch_performance_2024.csv"
 
 
 class Settings(BaseSettings):

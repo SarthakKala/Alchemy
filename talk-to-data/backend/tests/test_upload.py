@@ -28,12 +28,3 @@ def test_upload_non_csv_rejected(client):
         files={"file": ("file.txt", io.BytesIO(b"not a csv"), "text/plain")},
     )
     assert response.status_code == 400
-
-
-def test_default_session_available(client):
-    r = client.get("/api/upload/default-session")
-    assert r.status_code == 200
-    data = r.json()
-    assert data.get("available") is True
-    assert data["session_id"] == "natwest-demo"
-    assert "session_natwest_demo" in data["table_name"]

@@ -48,38 +48,6 @@ export async function uploadCSV(file: File): Promise<UploadResponse> {
   }
 }
 
-export async function getDefaultSession(): Promise<UploadResponse | null> {
-  try {
-    const { data } = await api.get<{
-      available: boolean;
-      session_id?: string;
-      table_name?: string;
-      filename?: string;
-      row_count?: number;
-      columns?: UploadResponse['columns'];
-      schema_info?: UploadResponse['schema_info'];
-      starter_questions?: string[];
-    }>('/api/upload/default-session');
-    if (!data.available || !data.session_id || !data.table_name) return null;
-    return {
-      session_id: data.session_id,
-      table_name: data.table_name,
-      filename: data.filename || 'demo.csv',
-      row_count: data.row_count ?? 0,
-      columns: data.columns ?? [],
-      schema_info: data.schema_info ?? {
-        date_columns: [],
-        numeric_columns: [],
-        categorical_columns: [],
-        text_columns: [],
-      },
-      starter_questions: data.starter_questions ?? [],
-    };
-  } catch {
-    return null;
-  }
-}
-
 export class RateLimitError extends Error {
   retryAfter: number;
   constructor(retryAfter: number) {
