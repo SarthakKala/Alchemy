@@ -1,0 +1,32 @@
+{
+  "revenue_gbp": {
+    "definition": "Gross revenue in GBP before operational costs",
+    "maps_to": ["revenue_gbp", "revenue", "rev", "net_rev", "income", "sales_amount"],
+    "unit": "GBP"
+  },
+  "revenue": {
+    "definition": "Net revenue after tax and refunds",
+    "maps_to": ["rev", "net_rev", "revenue", "income", "net_income", "sales_amount"],
+    "unit": "GBP"
+  },
+  "active_users": {
+    "definition": "Users who logged in within the last 30 days",
+    "maps_to": ["active_users", "dau", "mau", "monthly_active", "active"],
+    "unit": "count"
+  },
+  "orders": {
+    "definition": "Total number of completed purchase orders",
+    "maps_to": ["orders", "total_orders", "num_orders", "order_count"],
+    "unit": "count"
+  },
+  "churn": {
+    "definition": "Percentage of customers who stopped using the service in a period",
+    "maps_to": ["churn", "churn_rate", "attrition"],
+    "unit": "percentage"
+  },
+  "complaints": {
+    "definition": "Number of formal customer complaints received",
+    "maps_to": ["complaints", "complaint_count", "issues", "tickets"],
+    "unit": "count"
+  }
+}

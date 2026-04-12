@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+*.db
+*.sqlite
+node_modules/
+.next/
+.DS_Store
+debug.log
+output.txt
