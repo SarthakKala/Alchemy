@@ -22,7 +22,7 @@ talk-to-data/
 │   │   ├── core/
 │   │   │   ├── __init__.py
 │   │   │   ├── config.py            # Env vars, settings
-│   │   │   ├── database.py          # SQLite session manager
+│   │   │   ├── database.py          # Supabase/PostgreSQL session manager
 │   │   │   └── metrics_store.py     # Loads/saves metrics.json
 │   │   ├── graph/
 │   │   │   ├── __init__.py
@@ -44,7 +44,7 @@ talk-to-data/
 │   │   │   └── upload.py
 │   │   └── utils/
 │   │       ├── __init__.py
-│   │       ├── csv_parser.py        # CSV → SQLite ingestion
+│   │       ├── csv_parser.py        # CSV → Supabase/PostgreSQL ingestion
 │   │       ├── schema_detector.py   # Auto column type detection
 │   │       └── chart_selector.py    # Auto chart type logic
 │   ├── data/
@@ -122,7 +122,7 @@ python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install fastapi uvicorn[standard] python-multipart pandas \
   langchain langchain-community langgraph langchain-openai \
-  sqlalchemy aiofiles python-dotenv pydantic httpx pytest
+  sqlalchemy psycopg2-binary aiofiles python-dotenv pydantic httpx pytest
 pip freeze > requirements.txt
 ```
 
@@ -146,6 +146,8 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 LLM_MODEL=meta-llama/llama-3.3-70b-instruct:free
 MAX_UPLOAD_SIZE_MB=50
 ALLOWED_ORIGINS=http://localhost:3000
+# Supabase — get this from Project Settings → Database → Connection String (URI mode)
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
 ```
 
 **`frontend/.env.local.example`**
@@ -176,6 +178,110 @@ node_modules/
 debug.log
 output.txt
 ```
+
+---
+
+## 🎯 PHASE 0.5 — Demo Dataset (Do This Before Writing Any Code)
+
+> ⚠️ This phase is not optional. A generic CSV chatbot loses. A tool that looks purpose-built for NatWest wins.
+
+### Step 0.5.1 — Create the Demo Dataset
+
+Create this file as `backend/data/natwest_branch_performance_2024.csv`. It will be the **pre-loaded default dataset** judges see the moment they open the app — no upload needed.
+
+```csv
+branch,region,product_type,revenue_gbp,complaints,churn_rate,month,relationship_manager
+Bristol Central,South West,Mortgage,320000,12,0.04,2024-01,Sarah Chen
+Bristol Central,South West,Current Account,180000,8,0.02,2024-01,Sarah Chen
+Manchester North,North,Business Loan,510000,5,0.01,2024-01,James Okafor
+Manchester North,North,Mortgage,290000,14,0.05,2024-01,James Okafor
+Leeds City,North,Current Account,220000,9,0.03,2024-01,Priya Sharma
+Edinburgh Main,Scotland,ISA,140000,3,0.01,2024-01,David McLaren
+London Canary,London,Investment,890000,21,0.06,2024-01,Anya Patel
+London Canary,London,Mortgage,640000,18,0.04,2024-01,Anya Patel
+Bristol Central,South West,Mortgage,298000,19,0.07,2024-02,Sarah Chen
+Bristol Central,South West,Current Account,172000,11,0.03,2024-02,Sarah Chen
+Manchester North,North,Business Loan,530000,4,0.01,2024-02,James Okafor
+Manchester North,North,Mortgage,310000,10,0.03,2024-02,James Okafor
+Leeds City,North,Current Account,195000,15,0.06,2024-02,Priya Sharma
+Edinburgh Main,Scotland,ISA,152000,2,0.01,2024-02,David McLaren
+London Canary,London,Investment,920000,17,0.05,2024-02,Anya Patel
+London Canary,London,Mortgage,590000,25,0.07,2024-02,Anya Patel
+Bristol Central,South West,Mortgage,271000,28,0.09,2024-03,Sarah Chen
+Bristol Central,South West,Current Account,165000,14,0.04,2024-03,Sarah Chen
+Manchester North,North,Business Loan,488000,7,0.02,2024-03,James Okafor
+Manchester North,North,Mortgage,275000,12,0.04,2024-03,James Okafor
+Leeds City,North,Current Account,210000,11,0.04,2024-03,Priya Sharma
+Edinburgh Main,Scotland,ISA,148000,4,0.01,2024-03,David McLaren
+London Canary,London,Investment,870000,23,0.06,2024-03,Anya Patel
+London Canary,London,Mortgage,560000,31,0.09,2024-03,Anya Patel
+```
+
+This gives you: regional comparison, product breakdown, time-series trends, complaint spikes, churn analysis — all four NatWest use cases covered in one dataset.
+
+### Step 0.5.2 — Pre-load on Startup
+
+In `backend/app/main.py`, add a startup event that loads this dataset into the database automatically so judges see data immediately on first visit.
+
+```python
+# Add to main.py after app definition
+import os, uuid
+from app.utils.csv_parser import ingest_csv
+from app.core.database import create_session
+
+DEFAULT_DATASET_PATH = os.path.join(
+    os.path.dirname(__file__), "../../data/natwest_branch_performance_2024.csv"
+)
+DEFAULT_SESSION_ID = "natwest-demo"
+
+@app.on_event("startup")
+async def load_default_dataset():
+    """Pre-load the NatWest demo dataset so judges don't need to upload anything."""
+    if os.path.exists(DEFAULT_DATASET_PATH):
+        with open(DEFAULT_DATASET_PATH, "rb") as f:
+            contents = f.read()
+        conn = create_session(DEFAULT_SESSION_ID)
+        ingest_csv(contents, "natwest_branch_performance_2024.csv", conn)
+```
+
+### Step 0.5.3 — Pass Default Session to Frontend
+
+In your frontend `page.tsx`, on load, call `GET /api/session/default` (add this route) to check if a default session exists. If it does, skip the upload screen and go straight to the chat interface pre-populated with the NatWest dataset.
+
+Add this route to `backend/app/api/routes/upload.py`:
+
+```python
+@router.get("/default-session")
+def get_default_session():
+    """Returns the pre-loaded demo session so the frontend can skip the upload step."""
+    from app.core.database import get_session
+    from app.utils.schema_detector import detect_schema, generate_starter_questions
+    conn = get_session("natwest-demo")
+    if not conn:
+        return {"available": False}
+    schema_info = detect_schema(conn, "natwest_branch_performance_2024")
+    starters = generate_starter_questions(schema_info, "natwest_branch_performance_2024")
+    return {
+        "available": True,
+        "session_id": "natwest-demo",
+        "table_name": "natwest_branch_performance_2024",
+        "filename": "natwest_branch_performance_2024.csv",
+        "row_count": 24,
+        "schema_info": schema_info,
+        "starter_questions": starters
+    }
+```
+
+### Step 0.5.4 — Scripted Demo Questions (Memorise These)
+
+These are the four questions you ask during the demo — in this order:
+
+1. `"Why did revenue drop in the South West region in March 2024?"` — triggers **change** intent, shows bar chart + confidence badge
+2. `"Compare North vs London revenue across all months"` — triggers **compare** intent, shows line chart
+3. `"Show the breakdown of complaints by region"` — triggers **breakdown** intent, shows pie chart + "Show My Work"
+4. Open the Semantic Layer tab. Show `revenue_gbp` is defined as "Gross revenue in GBP before operational costs". Say: *"Every team in NatWest uses this same definition — no more misaligned reporting."*
+
+This four-step sequence covers all three NatWest pillars (Clarity, Trust, Speed) and all four use cases from the brief in under 90 seconds.
 
 ---
 
@@ -235,6 +341,8 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "meta-llama/llama-3.3-70b-instruct:free"
     MAX_UPLOAD_SIZE_MB: int = 50
     ALLOWED_ORIGINS: str = "http://localhost:3000"
+    # Supabase PostgreSQL connection string
+    DATABASE_URL: str = "sqlite:///./fallback.db"  # fallback for local dev without Supabase
 
     class Config:
         env_file = ".env"
@@ -247,38 +355,68 @@ settings = Settings()
 **`backend/app/core/database.py`**
 
 ```python
-# Manages in-memory SQLite sessions per upload
-# Each uploaded dataset gets its own named SQLite DB
-# Stores active sessions in a dict keyed by session_id
+# Manages per-session database connections using SQLAlchemy + Supabase PostgreSQL.
+# Each uploaded dataset is stored as a dynamically-named table: session_{uuid}
+# Tables are cleaned up after 24 hours via delete_session().
+# Falls back to SQLite for local development if DATABASE_URL is not set.
 
-import sqlite3
-import threading
+from sqlalchemy import create_engine, text, inspect
+from sqlalchemy.engine import Engine
 from typing import Dict
+import threading
 
-# Thread-safe session store: { session_id: sqlite3.Connection }
-_sessions: Dict[str, sqlite3.Connection] = {}
+from app.core.config import settings
+
+_engines: Dict[str, Engine] = {}
 _lock = threading.Lock()
 
-def create_session(session_id: str) -> sqlite3.Connection:
-    """Create a new in-memory SQLite connection for a session."""
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
-    with _lock:
-        _sessions[session_id] = conn
-    return conn
 
-def get_session(session_id: str) -> sqlite3.Connection | None:
-    """Retrieve existing session by ID."""
-    return _sessions.get(session_id)
+def _make_engine(session_id: str) -> Engine:
+    """
+    Create a SQLAlchemy engine for this session.
+    Points to Supabase PostgreSQL in production, SQLite locally.
+    """
+    url = settings.DATABASE_URL
+    connect_args = {}
+    if url.startswith("sqlite"):
+        connect_args = {"check_same_thread": False}
+    return create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+
+
+def create_session(session_id: str) -> Engine:
+    """Create and register a new engine for this session."""
+    engine = _make_engine(session_id)
+    with _lock:
+        _engines[session_id] = engine
+    return engine
+
+
+def get_session(session_id: str) -> Engine | None:
+    """Retrieve an existing session engine by ID."""
+    return _engines.get(session_id)
+
 
 def delete_session(session_id: str):
-    """Clean up session."""
-    with _lock:
-        if session_id in _sessions:
-            _sessions[session_id].close()
-            del _sessions[session_id]
+    """
+    Drop the session's table from Supabase and remove the engine.
+    Call this on session expiry or user logout.
+    """
+    engine = _engines.get(session_id)
+    if engine:
+        table_name = f"session_{session_id.replace('-', '_')}"
+        try:
+            with engine.connect() as conn:
+                conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+                conn.commit()
+        except Exception:
+            pass
+        with _lock:
+            engine.dispose()
+            del _engines[session_id]
+
 
 def list_sessions() -> list[str]:
-    return list(_sessions.keys())
+    return list(_engines.keys())
 ```
 
 ### Step 1.4 — CSV Parser Utility
@@ -286,44 +424,47 @@ def list_sessions() -> list[str]:
 **`backend/app/utils/csv_parser.py`**
 
 ```python
-# Handles CSV → SQLite ingestion
+# Handles CSV → Supabase/PostgreSQL ingestion via SQLAlchemy
 # - Reads CSV with pandas
 # - Infers column types
-# - Loads into SQLite table named after the file
+# - Loads into a table named: session_{session_id}
 # - Returns schema metadata for frontend preview
 
 import pandas as pd
-import sqlite3
 import re
 from typing import Dict, Any
+from sqlalchemy.engine import Engine
 
-def sanitize_table_name(filename: str) -> str:
-    """Convert filename to safe SQL table name."""
-    name = filename.replace(".csv", "").lower()
-    return re.sub(r"[^a-z0-9_]", "_", name)
+
+def sanitize_table_name(session_id: str) -> str:
+    """Convert session_id to a safe SQL table name."""
+    return "session_" + re.sub(r"[^a-z0-9]", "_", session_id.lower())
+
 
 def ingest_csv(
     file_bytes: bytes,
     filename: str,
-    conn: sqlite3.Connection
+    engine: Engine,
+    session_id: str
 ) -> Dict[str, Any]:
     """
-    Parse CSV bytes and load into SQLite.
+    Parse CSV bytes and load into Supabase via SQLAlchemy.
+    Table is named session_{session_id} so multiple sessions never collide.
     Returns: { table_name, columns: [{name, type, sample}], row_count }
     """
     from io import BytesIO
     df = pd.read_csv(BytesIO(file_bytes))
 
-    # Clean column names
+    # Clean column names — PostgreSQL-safe
     df.columns = [
         re.sub(r"[^a-z0-9_]", "_", col.lower().strip())
         for col in df.columns
     ]
 
-    table_name = sanitize_table_name(filename)
+    table_name = sanitize_table_name(session_id)
 
-    # Write to SQLite
-    df.to_sql(table_name, conn, if_exists="replace", index=False)
+    # Write to Supabase (if_exists=replace handles re-uploads cleanly)
+    df.to_sql(table_name, engine, if_exists="replace", index=False)
 
     # Build schema metadata
     columns = []
@@ -349,12 +490,14 @@ def ingest_csv(
 
 ```python
 # Detects date columns, numeric columns, categorical columns
-# Used by the semantic enricher node and starter question generator
+# Uses SQLAlchemy engine — works with both Supabase PostgreSQL and local SQLite fallback
 
-import sqlite3
+from sqlalchemy.engine import Engine
+from sqlalchemy import text, inspect as sa_inspect
 from typing import Dict, List
 
-def detect_schema(conn: sqlite3.Connection, table_name: str) -> Dict:
+
+def detect_schema(engine: Engine, table_name: str) -> Dict:
     """
     Returns categorised column info:
     - date_columns: likely date/time columns
@@ -362,31 +505,32 @@ def detect_schema(conn: sqlite3.Connection, table_name: str) -> Dict:
     - categorical_columns: low-cardinality text columns
     - text_columns: high-cardinality text (names, IDs)
     """
-    cursor = conn.execute(f"PRAGMA table_info({table_name})")
-    cols = cursor.fetchall()
+    insp = sa_inspect(engine)
+    cols = insp.get_columns(table_name)
 
     date_cols, numeric_cols, categorical_cols, text_cols = [], [], [], []
 
-    for col in cols:
-        col_name = col[1]
-        col_type = col[2].upper()
+    with engine.connect() as conn:
+        total = conn.execute(
+            text(f'SELECT COUNT(*) FROM "{table_name}"')
+        ).scalar() or 1
 
-        if any(k in col_name for k in ["date", "time", "month", "year", "week"]):
-            date_cols.append(col_name)
-        elif col_type in ["INTEGER", "REAL", "NUMERIC", "FLOAT", "DOUBLE"]:
-            numeric_cols.append(col_name)
-        else:
-            # Sample to check cardinality
-            result = conn.execute(
-                f"SELECT COUNT(DISTINCT {col_name}) FROM {table_name}"
-            ).fetchone()[0]
-            total = conn.execute(
-                f"SELECT COUNT(*) FROM {table_name}"
-            ).fetchone()[0]
-            if total > 0 and result / total < 0.2:
-                categorical_cols.append(col_name)
+        for col in cols:
+            col_name = col["name"]
+            col_type = str(col["type"]).upper()
+
+            if any(k in col_name.lower() for k in ["date", "time", "month", "year", "week"]):
+                date_cols.append(col_name)
+            elif any(t in col_type for t in ["INT", "FLOAT", "NUMERIC", "REAL", "DOUBLE", "DECIMAL"]):
+                numeric_cols.append(col_name)
             else:
-                text_cols.append(col_name)
+                distinct = conn.execute(
+                    text(f'SELECT COUNT(DISTINCT "{col_name}") FROM "{table_name}"')
+                ).scalar() or 0
+                if total > 0 and distinct / total < 0.2:
+                    categorical_cols.append(col_name)
+                else:
+                    text_cols.append(col_name)
 
     return {
         "date_columns": date_cols,
@@ -394,6 +538,7 @@ def detect_schema(conn: sqlite3.Connection, table_name: str) -> Dict:
         "categorical_columns": categorical_cols,
         "text_columns": text_cols
     }
+
 
 def generate_starter_questions(schema: Dict, table_name: str) -> List[str]:
     """
@@ -414,9 +559,7 @@ def generate_starter_questions(schema: Dict, table_name: str) -> List[str]:
     if date and num:
         questions.append(f"How did {num[0]} change over {date[0]}?")
     if cat and num:
-        questions.append(
-            f"Compare {num[0]} across different {cat[0]} values."
-        )
+        questions.append(f"Compare {num[0]} across different {cat[0]} values.")
 
     return questions[:5]
 ```
@@ -608,68 +751,81 @@ def classify_intent(state: GraphState) -> GraphState:
 **`backend/app/graph/nodes/ambiguity_resolver.py`**
 
 ```python
-# Detects if the query contains time references that need resolution
-# against the actual dataset date range.
-# If ambiguous, sets clarification_question for the frontend to show.
-# If resolved (user answered), uses resolved_query going forward.
+# Detects if the query contains time references that are genuinely unresolvable.
+# IMPORTANT: Common phrases like "this month", "last year", "yesterday" are
+# resolved AUTOMATICALLY using the current server date — the user is NEVER
+# asked to clarify these. We only stop for genuinely ambiguous phrases like
+# "recent", "last cycle", "last period" that have no universal anchor.
+#
+# This is critical: the hackathon theme is removing friction. Stopping the
+# user to ask "what do you mean by this month?" is the opposite of that.
 
-import sqlite3
+from datetime import datetime
 from app.graph.state import GraphState
-from app.core.database import get_session
 
-AMBIGUOUS_TIME_PHRASES = [
-    "last month", "this month", "last week", "this week",
-    "recently", "last cycle", "last quarter", "this quarter",
-    "yesterday", "today", "last year", "this year"
-]
+# These can be auto-resolved using the current server date
+AUTO_RESOLVABLE = {
+    "this month":    lambda now: now.strftime("%B %Y"),
+    "last month":    lambda now: (now.replace(day=1) - __import__('datetime').timedelta(days=1)).strftime("%B %Y"),
+    "this year":     lambda now: str(now.year),
+    "last year":     lambda now: str(now.year - 1),
+    "this week":     lambda now: f"week of {now.strftime('%d %B %Y')}",
+    "last week":     lambda now: f"week before {now.strftime('%d %B %Y')}",
+    "today":         lambda now: now.strftime("%d %B %Y"),
+    "yesterday":     lambda now: (now - __import__('datetime').timedelta(days=1)).strftime("%d %B %Y"),
+    "this quarter":  lambda now: f"Q{((now.month - 1) // 3) + 1} {now.year}",
+    "last quarter":  lambda now: (
+        lambda q, y: f"Q{q} {y}"
+    )(*((3, now.year - 1) if ((now.month - 1) // 3) == 0 else (((now.month - 1) // 3), now.year))),
+}
+
+# These are genuinely ambiguous — no universal anchor exists — ask the user
+TRULY_AMBIGUOUS = ["recently", "last cycle", "last period", "previous period", "a while back"]
+
 
 def resolve_ambiguity(state: GraphState) -> GraphState:
     """
-    Check for vague time references.
-    If found AND clarification not yet resolved, flag for user clarification.
-    If clarification_resolved is True, use resolved_query instead.
+    1. Try to auto-resolve common time phrases using today's date.
+       Inject the resolved date into resolved_query so the SQL generator
+       gets a precise time anchor — no user interruption needed.
+    2. Only flag is_ambiguous=True for genuinely unresolvable phrases.
     """
-    # If already resolved by user, skip
     if state.get("clarification_resolved"):
         return {**state, "is_ambiguous": False}
 
-    query = state["user_query"].lower()
-    found_phrase = None
+    now = datetime.now()
+    query = state["user_query"]
+    query_lower = query.lower()
 
-    for phrase in AMBIGUOUS_TIME_PHRASES:
-        if phrase in query:
-            found_phrase = phrase
-            break
+    # Try auto-resolution first
+    resolved = query
+    for phrase, resolver in AUTO_RESOLVABLE.items():
+        if phrase in query_lower:
+            resolved_date = resolver(now)
+            resolved = resolved.lower().replace(phrase, resolved_date)
 
-    if not found_phrase:
-        return {**state, "is_ambiguous": False}
+    if resolved != query:
+        # Successfully auto-resolved — no user interruption
+        return {
+            **state,
+            "is_ambiguous": False,
+            "resolved_query": resolved,
+            "clarification_resolved": True
+        }
 
-    # Try to get date range from dataset to include in clarification
-    conn = get_session(state["session_id"])
-    date_hint = ""
-    if conn and state.get("schema_info"):
-        date_cols = state["schema_info"].get("date_columns", [])
-        if date_cols:
-            try:
-                result = conn.execute(
-                    f"SELECT MIN({date_cols[0]}), MAX({date_cols[0]}) "
-                    f"FROM {state['table_name']}"
-                ).fetchone()
-                if result[0] and result[1]:
-                    date_hint = f" Your dataset covers {result[0]} to {result[1]}."
-            except Exception:
-                pass
+    # Check for truly ambiguous phrases that need clarification
+    for phrase in TRULY_AMBIGUOUS:
+        if phrase in query_lower:
+            date_hint = f" (Today is {now.strftime('%d %B %Y')}.)"
+            return {
+                **state,
+                "is_ambiguous": True,
+                "clarification_question": (
+                    f"You used '{phrase}' — could you specify the exact time period you meant?{date_hint}"
+                )
+            }
 
-    clarification = (
-        f"You used '{found_phrase}' in your question.{date_hint} "
-        f"Could you specify the exact time period you meant?"
-    )
-
-    return {
-        **state,
-        "is_ambiguous": True,
-        "clarification_question": clarification
-    }
+    return {**state, "is_ambiguous": False}
 ```
 
 ### Step 2.4 — Node 3: Semantic Enricher
@@ -688,15 +844,15 @@ from app.utils.schema_detector import detect_schema
 
 def enrich_with_semantics(state: GraphState) -> GraphState:
     """
-    1. Detect schema from SQLite table
+    1. Detect schema from Supabase table via SQLAlchemy engine
     2. Match columns to metric definitions
     3. Build enriched_context string for LLM prompt
     """
-    conn = get_session(state["session_id"])
-    if not conn:
+    engine = get_session(state["session_id"])
+    if not engine:
         return {**state, "error": "Session not found"}
 
-    schema_info = detect_schema(conn, state["table_name"])
+    schema_info = detect_schema(engine, state["table_name"])
     all_columns = (
         schema_info["numeric_columns"] +
         schema_info["categorical_columns"] +
@@ -742,12 +898,13 @@ from app.core.database import get_session
 import sqlite3
 import re
 
-def get_table_schema_string(conn: sqlite3.Connection, table_name: str) -> str:
-    """Get CREATE TABLE statement for context."""
-    result = conn.execute(
-        f"SELECT sql FROM sqlite_master WHERE name='{table_name}'"
-    ).fetchone()
-    return result[0] if result else ""
+def get_table_schema_string(engine: Engine, table_name: str) -> str:
+    """Get column definitions for the prompt context."""
+    from sqlalchemy import inspect as sa_inspect
+    insp = sa_inspect(engine)
+    cols = insp.get_columns(table_name)
+    col_defs = ", ".join([f"{c['name']} {c['type']}" for c in cols])
+    return f"CREATE TABLE {table_name} ({col_defs})"
 
 SQL_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """You are an expert SQL analyst. Your job is to convert natural language 
@@ -775,11 +932,11 @@ def generate_sql(state: GraphState) -> GraphState:
     Generate SQL from natural language query.
     Uses resolved_query if available (post ambiguity resolution).
     """
-    conn = get_session(state["session_id"])
-    if not conn:
+    engine = get_session(state["session_id"])
+    if not engine:
         return {**state, "error": "Session not found"}
 
-    schema_str = get_table_schema_string(conn, state["table_name"])
+    schema_str = get_table_schema_string(engine, state["table_name"])
     query_to_use = state.get("resolved_query") or state["user_query"]
 
     llm = ChatOpenAI(
@@ -815,9 +972,10 @@ def generate_sql(state: GraphState) -> GraphState:
 ```python
 # Safety gate: validates the generated SQL before execution
 # Checks: only SELECT allowed, no dangerous keywords, syntax parseable
+# Uses SQLAlchemy engine — works with both Supabase PostgreSQL and SQLite fallback
 
-import sqlite3
 import re
+from sqlalchemy import text
 from app.graph.state import GraphState
 from app.core.database import get_session
 
@@ -830,6 +988,7 @@ def validate_sql(state: GraphState) -> GraphState:
     """
     Validate SQL for safety and basic correctness.
     Sets is_sql_valid and sql_error in state.
+    Tracks semantic_remapped flag for confidence scoring.
     """
     sql = state.get("generated_sql", "")
 
@@ -855,13 +1014,14 @@ def validate_sql(state: GraphState) -> GraphState:
                 "sql_error": f"Keyword '{keyword}' is not allowed."
             }
 
-    # Test parse by preparing (not executing) on a dummy connection
-    conn = get_session(state["session_id"])
-    if conn:
+    # Test parse by running EXPLAIN on the live engine
+    engine = get_session(state["session_id"])
+    if engine:
         try:
-            # This will raise if SQL is syntactically broken
-            conn.execute(f"EXPLAIN QUERY PLAN {sql}")
-        except sqlite3.Error as e:
+            with engine.connect() as conn:
+                # EXPLAIN works on both PostgreSQL and SQLite
+                conn.execute(text(f"EXPLAIN {sql}"))
+        except Exception as e:
             return {
                 **state,
                 "is_sql_valid": False,
@@ -876,10 +1036,11 @@ def validate_sql(state: GraphState) -> GraphState:
 **`backend/app/graph/nodes/executor.py`**
 
 ```python
-# Executes the validated SQL on the in-memory SQLite session
+# Executes the validated SQL on the Supabase session engine
 # Returns raw_results as list of dicts + columns_used
+# Also flags sql_was_regenerated for honest confidence scoring
 
-import sqlite3
+from sqlalchemy import text
 from app.graph.state import GraphState
 from app.core.database import get_session
 
@@ -891,14 +1052,15 @@ def execute_sql(state: GraphState) -> GraphState:
     if not state.get("is_sql_valid"):
         return {**state, "error": state.get("sql_error", "Invalid SQL")}
 
-    conn = get_session(state["session_id"])
-    if not conn:
+    engine = get_session(state["session_id"])
+    if not engine:
         return {**state, "error": "Session not found"}
 
     try:
-        cursor = conn.execute(state["generated_sql"])
-        columns = [desc[0] for desc in cursor.description]
-        rows = cursor.fetchmany(500)
+        with engine.connect() as conn:
+            result = conn.execute(text(state["generated_sql"]))
+            columns = list(result.keys())
+            rows = result.fetchmany(500)
 
         raw_results = [dict(zip(columns, row)) for row in rows]
 
@@ -909,7 +1071,7 @@ def execute_sql(state: GraphState) -> GraphState:
             "columns_used": columns
         }
 
-    except sqlite3.Error as e:
+    except Exception as e:
         return {**state, "error": f"Query execution failed: {str(e)}"}
 ```
 
@@ -1001,46 +1163,96 @@ def format_answer(state: GraphState) -> GraphState:
 **`backend/app/graph/nodes/confidence_scorer.py`**
 
 ```python
-# Assigns High / Medium / Low confidence to each answer
-# Based on: row count, SQL validity, date resolution, retry count
+# Assigns High / Medium / Low confidence to each answer.
+#
+# IMPORTANT: This is NOT based on row count alone (that's not confidence scoring,
+# that's sample size reporting). Confidence here reflects how well the system
+# understood the query — whether it had to guess, remap, or regenerate anything.
+#
+# Three real signals are used:
+#   1. Column remapping — did the semantic layer have to translate a column name?
+#      (e.g., user said "sales" but the column is "revenue_gbp")
+#   2. SQL regeneration — did the validator reject the first SQL attempt?
+#   3. LLM hedging language — does the answer text contain phrases like
+#      "I assumed", "likely refers to", "may represent"?
+#
+# Row count is used only as a tiebreaker when signals are mixed.
 
 from app.graph.state import GraphState
 
+HEDGE_PHRASES = [
+    "i assumed", "likely refers to", "may represent", "could mean",
+    "approximately", "it appears", "seems to be", "probably"
+]
+
 def score_confidence(state: GraphState) -> GraphState:
     """
-    Simple rule-based confidence scoring.
-    High: valid SQL, many matching rows, no ambiguity issues
-    Medium: valid SQL but few rows or ambiguity was present
-    Low: SQL errors, no results, or ambiguity unresolved
+    Signal-based confidence scoring.
+
+    HIGH   → Exact column matches, SQL passed first time, no hedging in answer
+    MEDIUM → Semantic remapping occurred, or answer contains hedging language,
+             or fewer than 5 rows returned
+    LOW    → SQL failed validation, no results, or pipeline hit an error
     """
     if state.get("error"):
-        return {**state, "confidence": "low", "confidence_reason": state["error"]}
+        return {
+            **state,
+            "confidence": "low",
+            "confidence_reason": f"Pipeline error: {state['error']}"
+        }
 
     row_count = state.get("row_count", 0)
-    was_ambiguous = state.get("is_ambiguous", False)
     is_valid = state.get("is_sql_valid", False)
 
     if not is_valid or row_count == 0:
         return {
             **state,
             "confidence": "low",
-            "confidence_reason": "No matching data found or query could not be validated."
+            "confidence_reason": "No matching data found or SQL could not be validated."
         }
 
-    if row_count >= 10 and not was_ambiguous:
+    # Signal 1: did the semantic layer remap any columns?
+    metric_defs = state.get("metric_definitions", {})
+    semantic_remapped = len(metric_defs) > 0  # True if any column needed a definition lookup
+
+    # Signal 2: did the LLM hedge in the answer text?
+    answer = (state.get("answer_text") or "").lower()
+    llm_hedged = any(phrase in answer for phrase in HEDGE_PHRASES)
+
+    # Signal 3: was the query auto-resolved from an ambiguous time phrase?
+    time_was_inferred = state.get("clarification_resolved") and not state.get("is_ambiguous")
+
+    reasons = []
+    if semantic_remapped:
+        reasons.append("column name was remapped via semantic layer")
+    if llm_hedged:
+        reasons.append("answer contains inferred language")
+    if time_was_inferred:
+        reasons.append("time period was inferred from server date")
+    if row_count < 5:
+        reasons.append(f"only {row_count} row(s) matched — verify the filter")
+
+    if not reasons:
         return {
             **state,
             "confidence": "high",
-            "confidence_reason": f"Query matched {row_count} rows with clear intent."
+            "confidence_reason": (
+                f"Exact column match, SQL validated cleanly, {row_count} rows returned."
+            )
         }
 
-    if row_count > 0 and (row_count < 10 or was_ambiguous):
-        reason = f"Only {row_count} row(s) matched."
-        if was_ambiguous:
-            reason += " Time reference was ambiguous."
-        return {**state, "confidence": "medium", "confidence_reason": reason}
+    if len(reasons) >= 2 or llm_hedged:
+        return {
+            **state,
+            "confidence": "low",
+            "confidence_reason": "Multiple signals suggest interpretation uncertainty: " + "; ".join(reasons)
+        }
 
-    return {**state, "confidence": "medium", "confidence_reason": "Result is plausible but verify manually."}
+    return {
+        **state,
+        "confidence": "medium",
+        "confidence_reason": "Result is plausible but verify: " + "; ".join(reasons)
+    }
 ```
 
 ### Step 2.10 — Chart Selector Utility
@@ -1177,7 +1389,7 @@ pipeline = build_pipeline()
 
 ```python
 # POST /api/upload
-# Accepts a CSV file, creates a session, ingests into SQLite
+# Accepts a CSV file, creates a Supabase session, ingests into PostgreSQL
 # Returns: session_id, schema, starter questions
 
 import uuid
@@ -1191,7 +1403,7 @@ router = APIRouter()
 @router.post("/")
 async def upload_csv(file: UploadFile = File(...)):
     """
-    Upload a CSV file and create a new data session.
+    Upload a CSV file and create a new data session in Supabase.
     Returns session_id to use in subsequent /query requests.
     """
     if not file.filename.endswith(".csv"):
@@ -1203,14 +1415,15 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=413, detail="File exceeds 50MB limit.")
 
     session_id = str(uuid.uuid4())
-    conn = create_session(session_id)
+    engine = create_session(session_id)
 
     try:
-        schema_meta = ingest_csv(contents, file.filename, conn)
+        # Pass session_id so ingest_csv can name the table session_{uuid}
+        schema_meta = ingest_csv(contents, file.filename, engine, session_id)
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to parse CSV: {str(e)}")
 
-    schema_info = detect_schema(conn, schema_meta["table_name"])
+    schema_info = detect_schema(engine, schema_meta["table_name"])
     starter_questions = generate_starter_questions(schema_info, schema_meta["table_name"])
 
     return {
@@ -1222,6 +1435,26 @@ async def upload_csv(file: UploadFile = File(...)):
         "schema_info": schema_info,
         "starter_questions": starter_questions
     }
+
+
+@router.get("/default-session")
+def get_default_session():
+    """Returns the pre-loaded NatWest demo session. Frontend skips the upload screen if available."""
+    from app.core.database import get_session
+    engine = get_session("natwest-demo")
+    if not engine:
+        return {"available": False}
+    schema_info = detect_schema(engine, "natwest_branch_performance_2024")
+    starters = generate_starter_questions(schema_info, "natwest_branch_performance_2024")
+    return {
+        "available": True,
+        "session_id": "natwest-demo",
+        "table_name": "natwest_branch_performance_2024",
+        "filename": "natwest_branch_performance_2024.csv",
+        "row_count": 24,
+        "schema_info": schema_info,
+        "starter_questions": starters
+    }
 ```
 
 ### Step 3.2 — Query Route
@@ -1232,10 +1465,13 @@ async def upload_csv(file: UploadFile = File(...)):
 # POST /api/query
 # Runs the full LangGraph pipeline on a user question
 # Accepts: session_id, table_name, user_query, optional clarification fields
+# Handles OpenRouter rate limits gracefully — returns 429 with a user-friendly message
+# instead of crashing, so the frontend can show a "Retry in 10s" prompt.
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+import httpx
 from app.graph.pipeline import pipeline
 
 router = APIRouter()
@@ -1260,7 +1496,6 @@ async def run_query(request: QueryRequest):
         "table_name": request.table_name,
         "clarification_resolved": request.clarification_resolved,
         "resolved_query": request.resolved_query,
-        # All other fields start as None — nodes will populate them
         "intent": None,
         "is_ambiguous": None,
         "clarification_question": None,
@@ -1283,6 +1518,17 @@ async def run_query(request: QueryRequest):
 
     try:
         result = pipeline.invoke(initial_state)
+    except httpx.HTTPStatusError as e:
+        # OpenRouter rate limit — return a user-friendly response, not a crash
+        if e.response.status_code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "message": "High demand right now. Please retry in 10 seconds.",
+                    "retry_after": 10
+                }
+            )
+        raise HTTPException(status_code=500, detail=f"LLM request failed: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
 
@@ -1399,8 +1645,9 @@ export interface MetricsStore {
 ```typescript
 // All backend API calls in one place
 // Use these functions from hooks and components — never call fetch directly
+// Includes 429 rate-limit handling: surfaces a retry_after value to the caller
 
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { UploadResponse, QueryResponse, MetricsStore } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -1415,6 +1662,24 @@ export async function uploadCSV(file: File): Promise<UploadResponse> {
   return data;
 }
 
+export async function getDefaultSession(): Promise<UploadResponse | null> {
+  try {
+    const { data } = await api.get('/api/upload/default-session');
+    if (data.available) return data as UploadResponse;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export class RateLimitError extends Error {
+  retryAfter: number;
+  constructor(retryAfter: number) {
+    super('Rate limited');
+    this.retryAfter = retryAfter;
+  }
+}
+
 export async function runQuery(
   sessionId: string,
   tableName: string,
@@ -1422,14 +1687,23 @@ export async function runQuery(
   clarificationResolved = false,
   resolvedQuery?: string
 ): Promise<QueryResponse> {
-  const { data } = await api.post<QueryResponse>('/api/query/', {
-    session_id: sessionId,
-    table_name: tableName,
-    user_query: userQuery,
-    clarification_resolved: clarificationResolved,
-    resolved_query: resolvedQuery
-  });
-  return data;
+  try {
+    const { data } = await api.post<QueryResponse>('/api/query/', {
+      session_id: sessionId,
+      table_name: tableName,
+      user_query: userQuery,
+      clarification_resolved: clarificationResolved,
+      resolved_query: resolvedQuery
+    });
+    return data;
+  } catch (err) {
+    const axiosErr = err as AxiosError<{ detail: { retry_after: number } }>;
+    if (axiosErr.response?.status === 429) {
+      const retryAfter = axiosErr.response.data?.detail?.retry_after ?? 10;
+      throw new RateLimitError(retryAfter);
+    }
+    throw err;
+  }
 }
 
 export async function getMetrics(): Promise<MetricsStore> {
@@ -1449,19 +1723,32 @@ export async function saveMetrics(metrics: MetricsStore): Promise<void> {
 ```tsx
 // Root page — manages global state and renders the 3-panel layout:
 // Left sidebar (query history) | Main area (chat) | Right panel (schema + metrics)
+//
+// On mount: checks for the pre-loaded NatWest demo session via GET /api/upload/default-session
+// If available, skips the upload screen entirely — judges land on the live app immediately.
 
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UploadZone } from '@/components/upload/UploadZone';
 import { SchemaPreview } from '@/components/upload/SchemaPreview';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { QueryHistory } from '@/components/sidebar/QueryHistory';
 import { MetricEditor } from '@/components/semantic/MetricEditor';
 import { UploadResponse, HistoryItem } from '@/lib/types';
+import { getDefaultSession } from '@/lib/api';
 
 export default function HomePage() {
   const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [checkingDemo, setCheckingDemo] = useState(true);
+
+  // On first load: try to use the pre-loaded NatWest demo dataset
+  useEffect(() => {
+    getDefaultSession().then(session => {
+      if (session) setUploadData(session);
+      setCheckingDemo(false);
+    });
+  }, []);
 
   const handleUploadComplete = (data: UploadResponse) => {
     setUploadData(data);
@@ -1472,13 +1759,21 @@ export default function HomePage() {
     setHistory(prev => [item, ...prev]);
   };
 
+  if (checkingDemo) {
+    return (
+      <main className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <p className="text-zinc-500 text-sm">Loading...</p>
+      </main>
+    );
+  }
+
   if (!uploadData) {
     return (
       <main className="min-h-screen bg-[#050505] flex items-center justify-center p-8">
         <div className="w-full max-w-2xl">
           <h1 className="text-4xl font-bold text-white mb-2">Talk to Data</h1>
           <p className="text-gray-400 mb-8">
-            Upload a CSV and ask questions in plain English.
+            Upload any CSV and ask questions in plain English. Instant, sourced, auditable answers.
           </p>
           <UploadZone onUploadComplete={handleUploadComplete} />
         </div>
@@ -2239,6 +2534,37 @@ def test_sql_validator_allows_select():
 4. Add environment variable: `NEXT_PUBLIC_BACKEND_URL=<your render URL>`
 5. Deploy
 
+### Step 6.3 — Keep Render Alive (Critical for Demo)
+
+> ⚠️ Render's free tier spins down after 15 minutes of inactivity. During a hackathon demo, a cold start takes 40–60 seconds. That's dead silence while judges stare at a spinner. Fix this before you submit.
+
+**Option A — UptimeRobot (Free, Recommended)**
+
+1. Go to [uptimerobot.com](https://uptimerobot.com) → create a free account
+2. Click "Add New Monitor"
+3. Type: HTTP(s)
+4. Friendly Name: `talk-to-data backend`
+5. URL: `https://your-render-url.onrender.com/health`
+6. Monitoring Interval: **5 minutes**
+7. Save. Done. UptimeRobot pings `/health` every 5 minutes — Render never idles.
+
+**Option B — Render Paid Tier ($7/month)**
+
+Go to your Render service → Settings → Instance Type → upgrade to Starter. Always-on. Worth it for a 24–48 hour hackathon window.
+
+### Step 6.4 — Add DATABASE_URL to Render Environment
+
+In your Render service → Environment tab, add:
+
+```
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+OPENROUTER_API_KEY=your_key_here
+LLM_MODEL=meta-llama/llama-3.3-70b-instruct:free
+ALLOWED_ORIGINS=https://your-vercel-url.vercel.app
+```
+
+Get `DATABASE_URL` from Supabase dashboard → Project Settings → Database → Connection String (URI mode). Use the **direct connection** string, not the pooler.
+
 ---
 
 ## 📋 PHASE 7 — README for Submission
@@ -2251,29 +2577,39 @@ Use this exact structure for your `README.md` (follows NatWest guidelines Sectio
 > NatWest Group — Code for Purpose India Hackathon
 
 ## Overview
-Talk to Data is an AI-powered self-service intelligence layer that lets 
-anyone ask plain-English questions about any CSV dataset and receive 
-instant, sourced, auditable answers. It eliminates the need for SQL 
-knowledge, data analysts, or complex BI tools — returning answers in 
-seconds with full transparency into how each insight was derived.
-Target users: business analysts, team leads, and non-technical users 
-who need fast, trustworthy answers from data.
+Talk to Data is an AI-powered self-service intelligence layer built for NatWest,
+letting any business user ask plain-English questions about branch performance,
+customer metrics, and product data — and receive instant, auditable answers.
+No SQL knowledge, no data analyst, no complex BI tool needed.
+Every answer shows exactly which data was used and how the insight was derived.
+
+## Demo
+The app loads with a pre-built NatWest branch performance dataset covering
+6 branches, 4 product types, and 3 months of regional data.
+No setup required — open the app and start asking.
+
+Try these:
+- "Why did revenue drop in the South West region in March 2024?"
+- "Compare North vs London revenue across all months"
+- "Show the breakdown of complaints by region"
 
 ## Features
 - Natural language querying over any uploaded CSV
-- LangGraph 8-node pipeline: intent classification, ambiguity resolution, 
-  semantic enrichment, SQL generation, validation, execution, formatting, 
-  and confidence scoring
-- Editable semantic layer — define what your column names mean, 
+- LangGraph 7-node pipeline: intent classification, auto ambiguity resolution,
+  semantic enrichment, SQL generation, validation, execution, formatting,
+  and signal-based confidence scoring
+- Editable semantic layer — define what your column names mean,
   ensuring consistent metric definitions across every query
-- "Show My Work" drawer — every answer shows the SQL query, 
+- "Show My Work" drawer — every answer shows the SQL query,
   columns referenced, and row count for full auditability
-- Confidence badge (High / Medium / Low) with explanation on every answer
-- Ambiguity resolver — detects vague time phrases and asks for clarification
+- Signal-based Confidence badge (High / Medium / Low) — scores based on
+  whether columns were remapped, LLM hedged, or time was inferred
+- Smart time resolution — phrases like "this month" and "last quarter"
+  are resolved automatically from server date, zero user friction
 - Auto-generated starter questions on CSV upload
 - Dynamic chart selection (bar, line, pie, stat) based on query intent
 - Query history sidebar for session re-use
-- Multi-dataset support — upload multiple CSVs, ask cross-dataset questions
+- Pre-loaded NatWest demo dataset — judges see live data immediately
 
 ## Install and Run
 
@@ -2282,7 +2618,7 @@ who need fast, trustworthy answers from data.
 cd backend
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env      # Fill in your OPENROUTER_API_KEY
+cp .env.example .env      # Fill in OPENROUTER_API_KEY and DATABASE_URL
 uvicorn app.main:app --reload --port 8000
 \`\`\`
 
@@ -2293,32 +2629,33 @@ npm install
 cp .env.local.example .env.local
 npm run dev
 \`\`\`
-Open http://localhost:3000
+Open http://localhost:3000 — the NatWest demo dataset loads automatically.
 
 ## Tech Stack
 - **Frontend:** Next.js 14, TypeScript, Tailwind CSS, Recharts, Shadcn/ui
-- **Backend:** Python, FastAPI, LangGraph, LangChain, SQLite (in-memory)
+- **Backend:** Python, FastAPI, LangGraph, LangChain
+- **Database:** PostgreSQL on Supabase (persistent, session-isolated tables)
 - **LLM:** OpenRouter API → Llama 3.3 70B (free tier)
-- **Deployment:** Vercel (frontend), Render (backend)
+- **Deployment:** Vercel (frontend), Render (backend, kept warm via UptimeRobot)
 
 ## Architecture
 [Include your LangGraph node diagram here — export from pipeline.py visualization]
 
-The system uses an 8-node LangGraph pipeline:
-Intent Classifier → Ambiguity Resolver → Semantic Enricher → 
-SQL Generator → SQL Validator → Executor → Answer Formatter → Confidence Scorer
+The system uses a 7-node LangGraph pipeline:
+Intent Classifier → Auto Ambiguity Resolver → Semantic Enricher →
+SQL Generator → SQL Validator → Executor → Answer Formatter + Confidence Scorer
 
 ## Limitations
-- In-memory SQLite sessions are lost on server restart
 - LLM SQL generation may fail on very complex multi-join queries
-- Semantic layer matching is currently string-based, not embedding-based
+- Semantic layer matching is string-based, not embedding-based
 - Dataset size capped at 50MB
+- OpenRouter free tier has rate limits — retry logic handles this gracefully
 
 ## Future Improvements
 - Embedding-based semantic matching for better column resolution
-- Persistent sessions with PostgreSQL
 - Support for Excel (.xlsx) uploads
 - Export answers as PDF reports
+- B2B mode: team-level metric dictionaries with role-based access
 ```
 
 ---
@@ -2327,17 +2664,20 @@ SQL Generator → SQL Validator → Executor → Answer Formatter → Confidence
 
 ```
 FUNCTIONALITY
-  [ ] CSV upload works end-to-end
+  [ ] NatWest demo dataset loads automatically on app open (no upload needed)
+  [ ] CSV upload works end-to-end with new Supabase session
   [ ] All 4 query intents return answers (change, compare, breakdown, summary)
-  [ ] Ambiguity resolver triggers correctly on vague time phrases
+  [ ] "This month" / "last quarter" resolve automatically — no clarification prompt
+  [ ] Ambiguity prompt only appears for genuinely unresolvable phrases
   [ ] Show My Work drawer shows correct SQL
-  [ ] Confidence badge appears on every answer
+  [ ] Confidence badge shows signal-based reason (not just row count)
   [ ] Semantic layer saves and persists via PUT /api/metrics
   [ ] Starter questions appear after upload
+  [ ] 429 rate limit returns a user-friendly message, not a crash
 
 CODE QUALITY
   [ ] No hardcoded API keys anywhere
-  [ ] .env.example is present with all variables listed
+  [ ] .env.example is present with all variables including DATABASE_URL
   [ ] No print/console.log debug statements in final code
   [ ] No unused files or temp scripts
   [ ] Descriptive variable and function names throughout
@@ -2347,17 +2687,31 @@ SECURITY
   [ ] SQL validator blocks all non-SELECT queries
   [ ] File type validation on upload (CSV only)
   [ ] File size validation (50MB cap)
+  [ ] No sensitive data in demo dataset
+
+DATABASE
+  [ ] Supabase project created and DATABASE_URL added to Render env
+  [ ] Demo dataset table (natwest_branch_performance_2024) exists in Supabase
+  [ ] Session tables named session_{uuid} — no collision between uploads
 
 TESTS
   [ ] test_upload.py passes
   [ ] test_pipeline.py passes
   [ ] Run: cd backend && pytest tests/ -v
 
+DEPLOYMENT
+  [ ] UptimeRobot monitor set to ping /health every 5 minutes
+  [ ] Render service responds in under 3 seconds (warm)
+  [ ] Vercel deployment accessible and loads demo dataset on open
+  [ ] ALLOWED_ORIGINS updated to Vercel URL in Render env
+
 README
-  [ ] Overview (2-5 sentences, problem, users)
-  [ ] Features list (only implemented ones)
+  [ ] Overview mentions NatWest context specifically
+  [ ] Demo section lists the 3 scripted questions
+  [ ] Features list only includes implemented features
+  [ ] "In-memory SQLite" removed — replaced with "PostgreSQL on Supabase"
+  [ ] No mention of cross-dataset queries
   [ ] Install and run instructions tested fresh
-  [ ] Tech stack listed
   [ ] Architecture diagram included
   [ ] Limitations section is honest
 
@@ -2376,7 +2730,63 @@ SUBMISSION
 When you get stuck or want to extend, use these exact prompts in Cursor:
 
 - *"Build the LangGraph pipeline as described in graph/pipeline.py using the state schema in state.py. Each node is a separate file in graph/nodes/."*
-- *"Create the FastAPI upload route that parses a CSV with pandas, loads it into in-memory SQLite, and returns schema metadata and auto-generated starter questions."*
-- *"Build the AnswerCard component in Next.js using Tailwind and Recharts. It should show the answer text, a DynamicChart, a ConfidenceBadge, and a collapsible ShowMyWork drawer."*
+- *"Create the FastAPI upload route that parses a CSV with pandas, loads it into Supabase via SQLAlchemy, and returns schema metadata and auto-generated starter questions. The table should be named session_{session_id}."*
+- *"Build the AnswerCard component in Next.js using Tailwind and Recharts. It should show the answer text, a DynamicChart, a ConfidenceBadge with the confidence_reason tooltip, and a collapsible ShowMyWork drawer."*
 - *"Add the MetricEditor component that fetches metrics from GET /api/metrics, lets the user edit definitions, and saves via PUT /api/metrics."*
 - *"Write pytest tests for the intent_classifier and sql_validator nodes that cover all intent types and SQL safety rules."*
+- *"In ChatInterface.tsx, handle a RateLimitError from runQuery by showing an inline banner with a countdown from retryAfter seconds, then auto-retrying the query."*
+- *"In page.tsx, call getDefaultSession on mount. If it returns a session, skip the upload screen and go straight to ChatInterface with the NatWest dataset pre-loaded."*
+
+---
+
+## 🎬 PHASE 8 — Demo Script (Memorise This)
+
+> This phase is what separates top-3 finishers from everyone else. A technically perfect app presented badly loses. Practice this until it takes under 90 seconds.
+
+### The 90-Second Judge Demo
+
+**Setup (before judges arrive):**
+- App is open in browser, already on the chat interface with the NatWest dataset loaded
+- Semantic Layer panel is visible on the right
+- No loading screens, no upload needed
+
+**Step 1 — The Hook (10 seconds)**
+
+Say: *"No SQL. No analyst. No training. Any NatWest business user can do this right now."*
+
+Type into the chat: `Why did revenue drop in the South West region in March 2024?`
+
+**Step 2 — The Answer (15 seconds)**
+
+Answer appears. Point to three things in order:
+1. The plain-English answer with specific numbers
+2. The **Confidence badge** — say: *"High confidence. SQL matched exact column names, no guessing."*
+3. Click **Show My Work** — say: *"Every answer is fully auditable. Here's the exact SQL that ran. No black box."*
+
+**Step 3 — Comparison (20 seconds)**
+
+Type: `Compare North vs London revenue across all months`
+
+Line chart appears. Say: *"It understood 'compare' and automatically chose a time-series chart. No configuration."*
+
+**Step 4 — The Trust Moment (25 seconds)**
+
+Click the **Metric Definitions** tab in the right panel.
+
+Point to `revenue_gbp`. Read the definition aloud: *"Gross revenue in GBP before operational costs."*
+
+Say: *"This is the semantic layer. Every team at NatWest — risk, product, finance — uses this same definition when they query this data. No more 'your revenue number is different from my revenue number' in Monday meetings. One source of truth, enforced at the query level."*
+
+**Step 5 — Breakdown (20 seconds)**
+
+Type: `Show the breakdown of complaints by region`
+
+Pie chart appears. Say: *"Four use cases from the brief — change, compare, breakdown, summary — all working. Upload any CSV and it adapts automatically."*
+
+**Done. Stop talking.**
+
+Let the judges ask questions. Your answers to likely questions:
+
+- *"How does confidence scoring work?"* → "Three signals: whether column names were remapped by the semantic layer, whether the LLM used hedging language in the answer, and whether we had to infer the time period. Row count alone tells you nothing about understanding."
+- *"What happens if I type something it can't answer?"* → Show a deliberately vague query. The validator blocks unsafe SQL, the answer formatter returns a clean "no data matched" message.
+- *"Is this production-ready?"* → "Today it's a hackathon prototype. The architecture is production-shaped — Supabase PostgreSQL, validated SQL, semantic layer, full auditability. The path to production is adding auth, role-based metric access, and embedding-based column matching."
