@@ -41,7 +41,7 @@ export function MetricEditor() {
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="text-xs text-[#3ECF8E] hover:underline disabled:opacity-50"
+          className="text-xs text-orange-400 hover:underline disabled:opacity-50"
         >
           {saved ? 'Saved' : saving ? 'Saving...' : 'Save'}
         </button>
@@ -56,7 +56,7 @@ export function MetricEditor() {
             <input
               value={val.definition}
               onChange={(e) => updateDefinition(key, e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-[#3ECF8E]"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-orange-400"
             />
           </div>
         ))}

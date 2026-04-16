@@ -27,7 +27,7 @@ export function ShowMyWork({ sql, columnsUsed, rowCount }: Props) {
         <div className="mt-3 space-y-3">
           <div>
             <p className="text-xs text-zinc-500 mb-1">SQL Query</p>
-            <pre className="bg-zinc-950 text-[#3ECF8E] text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap">
+            <pre className="bg-zinc-950 text-orange-300 text-xs p-3 rounded-lg overflow-x-auto whitespace-pre-wrap">
               {sql}
             </pre>
           </div>

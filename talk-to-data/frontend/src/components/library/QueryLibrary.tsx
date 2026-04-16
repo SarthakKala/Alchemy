@@ -41,7 +41,7 @@ export function QueryLibrary({ sessionId, onReplay }: Props) {
     change: 'text-orange-bright border-orange-dim',
     compare: 'text-blue-400 border-blue-900',
     breakdown: 'text-purple-400 border-purple-900',
-    summary: 'text-green-400 border-green-900',
+    summary: 'text-orange-300 border-orange-900',
   };
 
   return (

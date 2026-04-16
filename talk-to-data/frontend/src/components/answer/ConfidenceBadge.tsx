@@ -8,7 +8,7 @@ interface Props {
 const CONFIG = {
   high: {
     label: 'High confidence',
-    color: 'bg-[#3ECF8E]/10 text-[#3ECF8E] border-[#3ECF8E]/20',
+    color: 'bg-orange-500/10 text-orange-300 border-orange-500/20',
   },
   medium: {
     label: 'Medium confidence',

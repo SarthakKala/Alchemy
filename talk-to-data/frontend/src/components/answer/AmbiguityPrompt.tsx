@@ -28,7 +28,7 @@ export function AmbiguityPrompt({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="e.g. March 2024"
-          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-[#3ECF8E]"
+          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-orange-400"
           onKeyDown={(e) => {
             if (e.key === 'Enter') resolve();
           }}
@@ -36,7 +36,7 @@ export function AmbiguityPrompt({
         <button
           type="button"
           onClick={resolve}
-          className="bg-[#3ECF8E] text-black px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#3ECF8E]/90 transition"
+          className="bg-orange-500 text-black px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-orange-400 transition"
         >
           Clarify
         </button>

@@ -22,7 +22,7 @@ interface Props {
   columns: string[];
 }
 
-const COLORS = ['#3ECF8E', '#60a5fa', '#f59e0b', '#ef4444', '#a78bfa'];
+const COLORS = ['#E8832A', '#F0A050', '#C25A18', '#f59e0b', '#D4691E'];
 
 export function DynamicChart({ type, data, columns }: Props) {
   if (!data.length || columns.length < 1) {
@@ -37,7 +37,7 @@ export function DynamicChart({ type, data, columns }: Props) {
     const val = data[0] ? Object.values(data[0])[0] : '-';
     return (
       <div className="bg-zinc-950 rounded-lg p-6 text-center">
-        <p className="text-4xl font-bold text-[#3ECF8E]">{String(val)}</p>
+        <p className="text-4xl font-bold text-orange-400">{String(val)}</p>
         <p className="text-zinc-500 text-xs mt-1">{columns[0] || 'result'}</p>
       </div>
     );
@@ -93,7 +93,7 @@ export function DynamicChart({ type, data, columns }: Props) {
           <Line
             type="monotone"
             dataKey={yKey}
-            stroke="#3ECF8E"
+            stroke="#E8832A"
             strokeWidth={2}
             dot={false}
           />
@@ -115,7 +115,7 @@ export function DynamicChart({ type, data, columns }: Props) {
             borderRadius: 8,
           }}
         />
-        <Bar dataKey={yKey} fill="#3ECF8E" radius={[4, 4, 0, 0]} />
+        <Bar dataKey={yKey} fill="#E8832A" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
