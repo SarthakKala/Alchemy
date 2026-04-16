@@ -16,7 +16,7 @@ export function StarterQuestions({ questions, onSelect }: Props) {
             key={q}
             type="button"
             onClick={() => onSelect(q)}
-            className="text-left text-xs bg-zinc-900 border border-zinc-800 text-zinc-300 px-3 py-2 rounded-lg hover:border-[#3ECF8E]/50 transition"
+            className="text-left text-xs bg-zinc-900 border border-zinc-800 text-zinc-300 px-3 py-2 rounded-lg hover:border-orange-400/60 hover:text-orange-100 transition"
           >
             {q}
           </button>

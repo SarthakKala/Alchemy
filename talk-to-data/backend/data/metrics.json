@@ -1,32 +1,133 @@
 {
-  "revenue_gbp": {
-    "definition": "Gross revenue in GBP before operational costs",
-    "maps_to": ["revenue_gbp", "revenue", "rev", "net_rev", "income", "sales_amount"],
-    "unit": "GBP"
-  },
   "revenue": {
-    "definition": "Net revenue after tax and refunds",
-    "maps_to": ["rev", "net_rev", "revenue", "income", "net_income", "sales_amount"],
-    "unit": "GBP"
+    "definition": "Total income or sales amount generated",
+    "maps_to": [
+      "revenue",
+      "rev",
+      "income",
+      "sales",
+      "sales_amount",
+      "total_sales",
+      "gross_revenue",
+      "net_revenue",
+      "revenue_gbp",
+      "revenue_usd",
+      "amount",
+      "value",
+      "total_amount"
+    ],
+    "unit": "currency"
   },
-  "active_users": {
-    "definition": "Users who logged in within the last 30 days",
-    "maps_to": ["active_users", "dau", "mau", "monthly_active", "active"],
-    "unit": "count"
+  "cost": {
+    "definition": "Total expenditure or operational cost",
+    "maps_to": [
+      "cost",
+      "costs",
+      "expense",
+      "expenses",
+      "expenditure",
+      "cost_gbp",
+      "cost_usd",
+      "operational_cost",
+      "spend"
+    ],
+    "unit": "currency"
   },
-  "orders": {
-    "definition": "Total number of completed purchase orders",
-    "maps_to": ["orders", "total_orders", "num_orders", "order_count"],
+  "profit": {
+    "definition": "Net earnings after subtracting costs from revenue",
+    "maps_to": [
+      "profit",
+      "net_profit",
+      "margin",
+      "earnings",
+      "net_income"
+    ],
+    "unit": "currency"
+  },
+  "users": {
+    "definition": "Total number of users or customers",
+    "maps_to": [
+      "users",
+      "customers",
+      "clients",
+      "accounts",
+      "members",
+      "new_customers",
+      "active_users",
+      "total_users"
+    ],
     "unit": "count"
   },
   "churn": {
-    "definition": "Percentage of customers who stopped using the service in a period",
-    "maps_to": ["churn", "churn_rate", "attrition"],
+    "definition": "Rate at which users or customers stop engaging",
+    "maps_to": [
+      "churn",
+      "churn_rate",
+      "attrition",
+      "dropout_rate"
+    ],
     "unit": "percentage"
   },
-  "complaints": {
-    "definition": "Number of formal customer complaints received",
-    "maps_to": ["complaints", "complaint_count", "issues", "tickets"],
+  "orders": {
+    "definition": "Total number of completed transactions or orders",
+    "maps_to": [
+      "orders",
+      "total_orders",
+      "num_orders",
+      "order_count",
+      "transactions",
+      "purchases"
+    ],
     "unit": "count"
+  },
+  "complaints": {
+    "definition": "Number of complaints, issues, or negative feedback items received",
+    "maps_to": [
+      "complaints",
+      "complaint_count",
+      "issues",
+      "tickets",
+      "negative_feedback",
+      "disputes"
+    ],
+    "unit": "count"
+  },
+  "score": {
+    "definition": "A performance, satisfaction, or quality score metric",
+    "maps_to": [
+      "score",
+      "nps_score",
+      "rating",
+      "satisfaction",
+      "performance_score",
+      "quality_score",
+      "net_score"
+    ],
+    "unit": "score"
+  },
+  "quantity": {
+    "definition": "Count or volume of items, units, or products",
+    "maps_to": [
+      "quantity",
+      "qty",
+      "volume",
+      "units",
+      "count",
+      "total_count"
+    ],
+    "unit": "count"
+  },
+  "rate": {
+    "definition": "A ratio or percentage metric such as conversion, error, or growth rate",
+    "maps_to": [
+      "rate",
+      "conversion_rate",
+      "growth_rate",
+      "error_rate",
+      "success_rate",
+      "default_rate",
+      "loan_default_rate"
+    ],
+    "unit": "percentage"
   }
 }

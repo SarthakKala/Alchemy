@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { MetricEditor } from '@/components/semantic/MetricEditor';
 import { ChatInterface } from '@/components/chat/ChatInterface';
+import { QueryLibrary } from '@/components/library/QueryLibrary';
+import { QueryHistory } from '@/components/sidebar/QueryHistory';
 import { SchemaPreview } from '@/components/upload/SchemaPreview';
 import { UploadZone } from '@/components/upload/UploadZone';
-import { QueryHistory } from '@/components/sidebar/QueryHistory';
-import { MetricEditor } from '@/components/semantic/MetricEditor';
 import type { HistoryItem, UploadResponse } from '@/lib/types';
 
 export default function HomePage() {
   const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [replayQuery, setReplayQuery] = useState<string | undefined>();
 
   const handleUploadComplete = (data: UploadResponse) => {
     setUploadData(data);
@@ -23,10 +25,10 @@ export default function HomePage() {
 
   if (!uploadData) {
     return (
-      <main className="min-h-screen bg-[#050505] flex items-center justify-center p-8">
+      <main className="min-h-screen bg-black flex items-center justify-center p-8">
         <div className="w-full max-w-2xl">
-          <h1 className="text-4xl font-bold text-white mb-2">Talk to Data</h1>
-          <p className="text-gray-400 mb-8">
+          <h1 className="text-4xl font-bold text-orange-400 mb-2">Alchemy</h1>
+          <p className="text-zinc-400 mb-8">
             Upload any CSV and ask questions in plain English. Instant, sourced,
             auditable answers.
           </p>
@@ -37,9 +39,11 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] flex">
+    <main className="min-h-screen bg-black flex">
       <aside className="w-64 border-r border-zinc-800 p-4 shrink-0 hidden md:block">
+        <div className="text-orange-400 text-sm font-semibold mb-4">Alchemy</div>
         <QueryHistory history={history} />
+        <QueryLibrary sessionId={uploadData.session_id} onReplay={(q) => setReplayQuery(q)} />
       </aside>
 
       <section className="flex-1 flex flex-col min-h-screen min-w-0 overflow-hidden">
@@ -50,13 +54,18 @@ export default function HomePage() {
           </span>
           <button
             type="button"
-            className="ml-auto text-sm text-zinc-400 hover:text-white transition shrink-0"
+            className="ml-auto text-sm text-zinc-400 hover:text-orange-300 transition shrink-0"
             onClick={() => setUploadData(null)}
           >
             Upload new file
           </button>
         </div>
-        <ChatInterface uploadData={uploadData} onAddToHistory={addToHistory} />
+        <ChatInterface
+          uploadData={uploadData}
+          onAddToHistory={addToHistory}
+          initialQuery={replayQuery}
+          onReplayConsumed={() => setReplayQuery(undefined)}
+        />
       </section>
 
       <aside className="w-72 border-l border-zinc-800 p-4 shrink-0 overflow-y-auto hidden lg:block">

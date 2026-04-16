@@ -1,19 +1,113 @@
 @import "tailwindcss";
 
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
+
 :root {
-  --background: #050505;
-  --foreground: #fafafa;
+  --bg-base: #0c0a08;
+  --bg-surface: #151210;
+  --bg-elevated: #1e1a16;
+  --bg-overlay: #26211c;
+  --border-subtle: #2a2420;
+  --border-default: #352e28;
+  --border-strong: #453c34;
+  --orange-dim: #8c3d10;
+  --orange-base: #c25a18;
+  --orange-mid: #d4691e;
+  --orange-bright: #e8832a;
+  --orange-glow: #f0a050;
+  --orange-pale: #f5c08a;
+  --gradient-btn: linear-gradient(135deg, #c25a18 0%, #e0782a 50%, #d4691e 100%);
+  --gradient-btn-hover: linear-gradient(135deg, #d4691e 0%, #f0892e 50%, #e07820 100%);
+  --gradient-accent: linear-gradient(135deg, #8c3d10 0%, #c25a18 100%);
+  --gradient-glow: radial-gradient(ellipse at center, #c25a1840 0%, transparent 70%);
+  --gradient-card: linear-gradient(145deg, #1e1a16 0%, #151210 100%);
+  --text-primary: #f5f0eb;
+  --text-secondary: #9a8e84;
+  --text-muted: #5c5248;
+  --text-orange: #e8832a;
+  --confidence-high: #4ade80;
+  --confidence-medium: #fbbf24;
+  --confidence-low: #f87171;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background-color: var(--bg-base);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--orange-base);
+}
+
+.glow-orange {
+  box-shadow: 0 0 24px #c25a1830, 0 0 8px #c25a1820;
+}
+
+.glow-orange-strong {
+  box-shadow: 0 0 40px #c25a1850, 0 0 16px #c25a1835;
+}
+
+.text-gradient-orange {
+  background: linear-gradient(135deg, #e8832a, #f5c08a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-orange {
+  background: var(--gradient-btn);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-orange::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-btn-hover);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.btn-orange:hover::after {
+  opacity: 1;
+}
+.btn-orange:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px #c25a1840;
+}
+.btn-orange:active {
+  transform: translateY(0);
+}
+
+.card {
+  background: var(--gradient-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
 }

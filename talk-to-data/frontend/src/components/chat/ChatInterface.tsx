@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnswerCard } from '@/components/answer/AnswerCard';
 import { AmbiguityPrompt } from '@/components/answer/AmbiguityPrompt';
 import { QueryInput } from './QueryInput';
@@ -11,6 +11,8 @@ import type { HistoryItem, QueryResponse, UploadResponse } from '@/lib/types';
 interface Props {
   uploadData: UploadResponse;
   onAddToHistory: (item: HistoryItem) => void;
+  initialQuery?: string;
+  onReplayConsumed?: () => void;
 }
 
 interface Message {
@@ -20,7 +22,12 @@ interface Message {
   loading: boolean;
 }
 
-export function ChatInterface({ uploadData, onAddToHistory }: Props) {
+export function ChatInterface({
+  uploadData,
+  onAddToHistory,
+  initialQuery,
+  onReplayConsumed,
+}: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [rateLimitSec, setRateLimitSec] = useState<number | null>(null);
@@ -38,7 +45,7 @@ export function ChatInterface({ uploadData, onAddToHistory }: Props) {
     return () => clearInterval(t);
   }, [rateLimitSec]);
 
-  const handleQuery = async (
+  const handleQuery = useCallback(async (
     query: string,
     clarificationResolved = false,
     resolvedQuery?: string
@@ -101,7 +108,13 @@ export function ChatInterface({ uploadData, onAddToHistory }: Props) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onAddToHistory, uploadData.session_id, uploadData.table_name]);
+
+  useEffect(() => {
+    if (!initialQuery) return;
+    void handleQuery(initialQuery);
+    onReplayConsumed?.();
+  }, [handleQuery, initialQuery, onReplayConsumed]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -143,7 +156,7 @@ export function ChatInterface({ uploadData, onAddToHistory }: Props) {
                     }
                   />
                 ) : (
-                  <AnswerCard response={msg.response} />
+                  <AnswerCard response={msg.response} sessionId={uploadData.session_id} />
                 )}
               </>
             )}

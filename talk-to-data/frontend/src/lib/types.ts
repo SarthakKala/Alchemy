@@ -56,3 +56,13 @@ export interface MetricDefinition {
 }
 
 export type MetricsStore = Record<string, MetricDefinition>;
+
+export interface SavedQuery {
+  id: string;
+  name: string;
+  query_text: string;
+  intent?: string;
+  use_count: number;
+  created_at: string;
+  last_used: string;
+}

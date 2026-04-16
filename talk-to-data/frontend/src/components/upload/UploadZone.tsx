@@ -49,11 +49,15 @@ export function UploadZone({ onUploadComplete }: Props) {
 
   return (
     <div
-      className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
-        isDragging
-          ? 'border-[#3ECF8E] bg-[#3ECF8E]/5'
-          : 'border-zinc-700 hover:border-zinc-500'
-      }`}
+      className="text-center transition-all"
+      style={{
+        border: `2px dashed ${isDragging ? 'var(--orange-bright)' : 'var(--border-default)'}`,
+        background: isDragging ? '#C25A1808' : 'transparent',
+        borderRadius: '12px',
+        padding: '48px 32px',
+        transition: 'all 0.2s ease',
+        boxShadow: isDragging ? '0 0 24px #C25A1820' : 'none',
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         setIsDragging(true);
@@ -62,12 +66,22 @@ export function UploadZone({ onUploadComplete }: Props) {
       onDrop={handleDrop}
     >
       {isLoading ? (
-        <p className="text-[#3ECF8E]">Processing your file...</p>
+        <p style={{ color: 'var(--orange-bright)' }}>Processing your file...</p>
       ) : (
         <>
-          <p className="text-white text-lg mb-2">Drop your CSV here</p>
-          <p className="text-zinc-500 text-sm mb-4">or</p>
-          <label className="cursor-pointer bg-[#3ECF8E] text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#3ECF8E]/90 transition">
+          <p
+            style={{
+              color: 'var(--text-primary)',
+              fontSize: '16px',
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              marginBottom: '8px',
+            }}
+          >
+            Drop your CSV here
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>or</p>
+          <label className="btn-orange cursor-pointer rounded-xl px-5 py-2.5 text-sm">
             Browse file
             <input
               type="file"
@@ -79,7 +93,11 @@ export function UploadZone({ onUploadComplete }: Props) {
               }}
             />
           </label>
-          {error && <p className="mt-4 text-red-400 text-sm">{error}</p>}
+          {error && (
+            <p className="mt-4 text-sm" style={{ color: '#F87171' }}>
+              {error}
+            </p>
+          )}
         </>
       )}
     </div>

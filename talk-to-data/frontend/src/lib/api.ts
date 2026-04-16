@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import type { MetricsStore, QueryResponse, UploadResponse } from './types';
+import type { MetricsStore, QueryResponse, SavedQuery, UploadResponse } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 const api = axios.create({ baseURL: BASE_URL });
@@ -95,4 +95,39 @@ export async function getMetrics(): Promise<MetricsStore> {
 
 export async function saveMetrics(metrics: MetricsStore): Promise<void> {
   await api.put('/api/metrics/', metrics);
+}
+
+export async function saveQuery(
+  sessionId: string,
+  name: string,
+  queryText: string,
+  intent?: string
+): Promise<SavedQuery> {
+  const { data } = await api.post<SavedQuery>('/api/library/', {
+    session_id: sessionId,
+    name,
+    query_text: queryText,
+    intent,
+  });
+  return data;
+}
+
+export async function getLibrary(sessionId: string): Promise<SavedQuery[]> {
+  const { data } = await api.get<SavedQuery[]>('/api/library/', {
+    params: { session_id: sessionId },
+  });
+  return data;
+}
+
+export async function deleteSavedQuery(sessionId: string, queryId: string): Promise<void> {
+  await api.delete(`/api/library/${queryId}`, {
+    params: { session_id: sessionId },
+  });
+}
+
+export async function replaySavedQuery(sessionId: string, queryId: string): Promise<SavedQuery> {
+  const { data } = await api.post<SavedQuery>(`/api/library/${queryId}/replay`, null, {
+    params: { session_id: sessionId },
+  });
+  return data;
 }

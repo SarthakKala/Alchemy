@@ -14,11 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 def _load_routes(app: FastAPI) -> None:
     """Import route modules and register them. Called once during lifespan."""
     print("talk-to-data: importing routes (sqlalchemy, httpx, pydantic)…", file=sys.stderr, flush=True)
-    from app.api.routes import metrics, query, upload  # noqa: PLC0415
+    from app.api.routes import library, metrics, query, upload  # noqa: PLC0415
 
     app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
     app.include_router(query.router, prefix="/api/query", tags=["Query"])
     app.include_router(metrics.router, prefix="/api/metrics", tags=["Metrics"])
+    app.include_router(library.router, prefix="/api/library", tags=["Library"])
     print("talk-to-data: routes registered.", file=sys.stderr, flush=True)
 
 
@@ -35,8 +36,8 @@ _cors_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 
 app = FastAPI(
-    title="Talk to Data API",
-    description="NL-to-SQL intelligence layer for self-service data analysis",
+    title="Alchemy API",
+    description="Natural-language intelligence layer for uploaded CSV analysis",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -52,4 +53,4 @@ app.add_middleware(
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "talk-to-data"}
+    return {"status": "ok", "service": "alchemy"}
