@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MetricEditor } from '@/components/semantic/MetricEditor';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { QueryLibrary } from '@/components/library/QueryLibrary';
@@ -14,6 +14,12 @@ export default function HomePage() {
   const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [replayQuery, setReplayQuery] = useState<string | undefined>();
+  const [introReady, setIntroReady] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setIntroReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const handleUploadComplete = (data: UploadResponse) => {
     setUploadData(data);
@@ -27,7 +33,17 @@ export default function HomePage() {
   if (!uploadData) {
     return (
       <main className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-8">
-        <div className="absolute inset-0 opacity-85">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: '#090909',
+            backgroundImage:
+              'radial-gradient(circle at 20% 15%, rgba(232,131,42,0.24) 0 1px, transparent 1.2px), radial-gradient(circle at 80% 35%, rgba(232,131,42,0.17) 0 1px, transparent 1.3px)',
+            backgroundSize: '10px 10px, 13px 13px',
+            opacity: 0.42,
+          }}
+        />
+        <div className={`absolute inset-0 opacity-85 ${introReady ? 'intro-bg-fade' : 'opacity-0'}`}>
           <PixelBlast
             variant="circle"
             pixelSize={8}
@@ -47,7 +63,9 @@ export default function HomePage() {
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/65" />
 
-        <div className="relative z-10 w-full max-w-3xl rounded-2xl border border-orange-500/20 bg-black/65 backdrop-blur-sm p-8 md:p-10 shadow-[0_0_60px_rgba(232,131,42,0.18)]">
+        <div
+          className={`relative z-10 w-full max-w-3xl rounded-2xl border border-orange-500/20 bg-black/65 backdrop-blur-sm p-8 md:p-10 shadow-[0_0_60px_rgba(232,131,42,0.18)] ${introReady ? 'intro-card-fade' : 'opacity-0'}`}
+        >
           <h1 className="text-center text-white font-bold text-5xl md:text-6xl mb-4">Alchemy</h1>
           <p className="text-center text-zinc-200 text-sm md:text-base mb-8">
             Upload any CSV and get instant plain-English insights with sourced, auditable answers.
