@@ -83,9 +83,12 @@ export default function HomePage() {
     <QueryLibraryProvider sessionId={uploadData.session_id}>
     <main className="h-[100dvh] min-h-0 bg-black flex gap-4 p-4 md:p-5 lg:p-6 overflow-hidden">
       <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 min-h-0 overflow-y-auto">
-        <div className="dashboard-card px-4 py-3 shrink-0">
-          <div className="text-sm font-semibold tracking-tight text-white">Alchemy</div>
-        </div>
+        <h1
+          className="shrink-0 px-0 pb-1 pt-0 text-3xl font-bold tracking-tight text-white md:text-4xl"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          Alchemy
+        </h1>
 
         <div className="dashboard-card flex flex-col min-h-[140px] max-h-[38vh] shrink-0 overflow-hidden p-4">
           <div className="min-h-0 flex-1 overflow-y-auto">

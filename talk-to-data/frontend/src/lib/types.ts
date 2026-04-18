@@ -39,6 +39,8 @@ export interface QueryResponse {
   confidence?: 'high' | 'medium' | 'low';
   confidence_reason?: string;
   error?: string;
+  /** True when the message was rejected as gibberish / not a data question */
+  incoherent?: boolean;
 }
 
 export interface HistoryItem {

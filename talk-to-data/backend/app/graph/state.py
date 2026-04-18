@@ -33,3 +33,4 @@ class GraphState(TypedDict, total=False):
     confidence_reason: Optional[str]
 
     error: Optional[str]
+    incoherent: Optional[bool]

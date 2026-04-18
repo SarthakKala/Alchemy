@@ -1,8 +1,9 @@
-"""LangGraph: intent → ambiguity → semantics → SQL → validate → execute → format → confidence."""
+"""LangGraph: coherence → intent → ambiguity → semantics → SQL → validate → execute → format → confidence."""
 
 from langgraph.graph import END, StateGraph
 
 from app.graph.nodes.ambiguity_resolver import resolve_ambiguity
+from app.graph.nodes.query_coherence import check_query_coherence
 from app.graph.nodes.answer_formatter import format_answer
 from app.graph.nodes.confidence_scorer import score_confidence
 from app.graph.nodes.executor import execute_sql
@@ -39,9 +40,16 @@ def should_continue_after_semantics(state: GraphState) -> str:
     return "continue"
 
 
+def route_after_coherence(state: GraphState) -> str:
+    if state.get("incoherent"):
+        return "stop_incoherent"
+    return "continue"
+
+
 def build_pipeline():
     graph = StateGraph(GraphState)
 
+    graph.add_node("query_coherence", check_query_coherence)
     graph.add_node("intent_classifier", classify_intent)
     graph.add_node("ambiguity_resolver", resolve_ambiguity)
     graph.add_node("semantic_enricher", enrich_with_semantics)
@@ -51,7 +59,12 @@ def build_pipeline():
     graph.add_node("answer_formatter", format_answer)
     graph.add_node("confidence_scorer", score_confidence)
 
-    graph.set_entry_point("intent_classifier")
+    graph.set_entry_point("query_coherence")
+    graph.add_conditional_edges(
+        "query_coherence",
+        route_after_coherence,
+        {"stop_incoherent": END, "continue": "intent_classifier"},
+    )
     graph.add_edge("intent_classifier", "ambiguity_resolver")
 
     graph.add_conditional_edges(

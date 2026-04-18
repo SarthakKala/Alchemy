@@ -45,6 +45,7 @@ async def run_query(request: QueryRequest):
         "confidence": None,
         "confidence_reason": None,
         "error": None,
+        "incoherent": None,
     }
 
     try:

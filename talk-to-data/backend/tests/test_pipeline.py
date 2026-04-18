@@ -30,6 +30,7 @@ def make_base_state(**kwargs):
         "confidence": None,
         "confidence_reason": None,
         "error": None,
+        "incoherent": None,
     }
     base.update(kwargs)
     return base
@@ -51,6 +52,19 @@ def test_sql_validator_blocks_drop():
     state = make_base_state(generated_sql="DROP TABLE sales")
     result = validate_sql(state)
     assert result["is_sql_valid"] is False
+
+
+def test_heuristic_flags_obvious_gibberish():
+    from app.graph.nodes.query_coherence import _heuristic_incoherent
+
+    assert _heuristic_incoherent("ulhumhuhawe fblsef hlbfELGABS") is True
+
+
+def test_heuristic_allows_plain_questions():
+    from app.graph.nodes.query_coherence import _heuristic_incoherent
+
+    assert _heuristic_incoherent("What is total revenue by branch?") is False
+    assert _heuristic_incoherent("Show breakdown of sales by region") is False
 
 
 def test_sql_validator_allows_select():
