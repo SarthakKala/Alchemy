@@ -2,7 +2,7 @@
 
 > Ask your data anything. No SQL. No analyst. Just answers.
 
-You upload a spreadsheet (CSV). You ask questions in normal sentences — for example, “What were our top products last quarter?” — and Alchemy answers with numbers, charts, and a short explanation. You can see **how** it arrived at the answer (which parts of your file it used), save questions you ask often, and get a sense of how confident the system is that it understood you. You do **not** need to know database languages or analytics tools to understand what Alchemy does; the sections below add technical detail for developers who want to run or extend it.
+**Alchemy** helps you explore a spreadsheet by asking questions in normal English—like “What sold best last quarter?”—instead of wrestling with formulas or technical tools yourself. You get answers with charts and numbers, plus a simple view of **how** those answers were pulled from **your** file. No SQL or analytics background is needed to understand what the product does; skip ahead to **Technologies** and **Running the Project** if you want to build or run it locally.
 
 ### What it is (technical overview)
 
