@@ -35,8 +35,8 @@ export function MetricEditor() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-white text-sm font-medium">Metric Definitions</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white">Metric Definitions</h3>
         <button
           type="button"
           onClick={() => void handleSave()}
@@ -56,7 +56,7 @@ export function MetricEditor() {
             <input
               value={val.definition}
               onChange={(e) => updateDefinition(key, e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-orange-400"
+              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] px-2.5 py-2 text-xs text-white outline-none focus:border-orange-400"
             />
           </div>
         ))}

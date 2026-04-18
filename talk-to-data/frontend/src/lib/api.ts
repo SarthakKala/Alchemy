@@ -103,13 +103,17 @@ export async function saveQuery(
   queryText: string,
   intent?: string
 ): Promise<SavedQuery> {
-  const { data } = await api.post<SavedQuery>('/api/library/', {
-    session_id: sessionId,
-    name,
-    query_text: queryText,
-    intent,
-  });
-  return data;
+  try {
+    const { data } = await api.post<SavedQuery>('/api/library/', {
+      session_id: sessionId,
+      name,
+      query_text: queryText,
+      intent,
+    });
+    return data;
+  } catch (err) {
+    throw new Error(formatApiError(err));
+  }
 }
 
 export async function getLibrary(sessionId: string): Promise<SavedQuery[]> {
@@ -120,9 +124,13 @@ export async function getLibrary(sessionId: string): Promise<SavedQuery[]> {
 }
 
 export async function deleteSavedQuery(sessionId: string, queryId: string): Promise<void> {
-  await api.delete(`/api/library/${queryId}`, {
-    params: { session_id: sessionId },
-  });
+  try {
+    await api.delete(`/api/library/${queryId}`, {
+      params: { session_id: sessionId },
+    });
+  } catch (err) {
+    throw new Error(formatApiError(err));
+  }
 }
 
 export async function replaySavedQuery(sessionId: string, queryId: string): Promise<SavedQuery> {

@@ -81,8 +81,8 @@ export function UploadZone({ onUploadComplete }: Props) {
             Drop your CSV here
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>or</p>
-          <label className="btn-orange cursor-pointer rounded-xl px-5 py-2.5 text-sm">
-            Browse file
+          <label className="btn-orange inline-flex cursor-pointer items-center justify-center rounded-full px-6 py-2.5 text-sm font-medium text-white">
+            <span className="relative z-[1]">Browse file</span>
             <input
               type="file"
               accept=".csv"

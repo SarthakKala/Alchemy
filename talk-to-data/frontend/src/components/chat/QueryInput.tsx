@@ -25,12 +25,12 @@ export function QueryInput({ onSubmit, disabled }: Props) {
         onChange={(e) => setValue(e.target.value)}
         placeholder="Ask a question about your data..."
         disabled={disabled}
-        className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-orange-400 disabled:opacity-50"
+        className="flex-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] px-4 py-3 text-sm text-white outline-none focus:border-orange-400 disabled:opacity-50"
       />
       <button
         type="submit"
         disabled={disabled || !value.trim()}
-        className="bg-orange-500 text-black px-5 py-3 rounded-xl text-sm font-medium hover:bg-orange-400 disabled:opacity-50"
+        className="rounded-2xl bg-orange-500 px-5 py-3 text-sm font-medium text-white hover:bg-orange-400 disabled:opacity-50"
       >
         Send
       </button>

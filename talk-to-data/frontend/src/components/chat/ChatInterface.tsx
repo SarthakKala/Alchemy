@@ -119,11 +119,11 @@ export function ChatInterface({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {rateLimitSec !== null && rateLimitSec > 0 && (
-        <div className="mx-4 mt-2 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+        <div className="mx-5 mt-4 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-2">
           Rate limited. Retry in {rateLimitSec}s…
         </div>
       )}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 space-y-6 overflow-y-auto px-5 pb-5 pt-5 md:px-6 md:pb-6 md:pt-6">
         {messages.length === 0 && (
           <StarterQuestions
             questions={uploadData.starter_questions}
@@ -134,14 +134,20 @@ export function ChatInterface({
         {messages.map((msg) => (
           <div key={msg.id} className="space-y-3">
             <div className="flex justify-end">
-              <div className="bg-zinc-800 text-white px-4 py-2 rounded-2xl rounded-tr-sm max-w-lg text-sm">
+              <div
+                className="max-w-lg rounded-2xl rounded-tr-sm border border-orange-500/35 px-4 py-2.5 text-sm text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                style={{
+                  background:
+                    'linear-gradient(145deg, var(--bg-elevated) 0%, var(--bg-overlay) 100%)',
+                }}
+              >
                 {msg.query}
               </div>
             </div>
 
             {msg.loading && (
-              <div className="text-zinc-500 text-sm animate-pulse pl-2">
-                Analysing your data...
+              <div className="animate-pulse pl-2 text-sm text-[var(--text-muted)]">
+                Analysing your data…
               </div>
             )}
 
@@ -165,7 +171,7 @@ export function ChatInterface({
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-zinc-800 p-4 shrink-0">
+      <div className="shrink-0 border-t border-[var(--border-subtle)] p-4 md:p-5">
         <QueryInput
           onSubmit={(q) => void handleQuery(q)}
           disabled={isLoading}

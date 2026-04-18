@@ -8,6 +8,7 @@ import { QueryHistory } from '@/components/sidebar/QueryHistory';
 import { SchemaPreview } from '@/components/upload/SchemaPreview';
 import { UploadZone } from '@/components/upload/UploadZone';
 import { PixelBlast } from '@/components/ui/pixel-blast';
+import { QueryLibraryProvider } from '@/contexts/QueryLibraryContext';
 import type { HistoryItem, UploadResponse } from '@/lib/types';
 
 export default function HomePage() {
@@ -79,41 +80,60 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-black flex">
-      <aside className="w-64 border-r border-zinc-800 p-4 shrink-0 hidden md:block">
-        <div className="text-orange-400 text-sm font-semibold mb-4">Alchemy</div>
-        <QueryHistory history={history} />
-        <QueryLibrary sessionId={uploadData.session_id} onReplay={(q) => setReplayQuery(q)} />
+    <QueryLibraryProvider sessionId={uploadData.session_id}>
+    <main className="h-[100dvh] min-h-0 bg-black flex gap-4 p-4 md:p-5 lg:p-6 overflow-hidden">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 min-h-0 overflow-y-auto">
+        <div className="dashboard-card px-4 py-3 shrink-0">
+          <div className="text-sm font-semibold tracking-tight text-white">Alchemy</div>
+        </div>
+
+        <div className="dashboard-card flex flex-col min-h-[140px] max-h-[38vh] shrink-0 overflow-hidden p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <QueryHistory history={history} />
+          </div>
+        </div>
+
+        <div className="dashboard-card flex min-h-0 flex-1 flex-col overflow-hidden p-4">
+          <QueryLibrary sessionId={uploadData.session_id} onReplay={(q) => setReplayQuery(q)} />
+        </div>
       </aside>
 
-      <section className="flex-1 flex flex-col min-h-screen min-w-0 overflow-hidden">
-        <div className="p-4 border-b border-zinc-800 flex items-center gap-3 shrink-0">
-          <span className="text-white font-medium truncate">{uploadData.filename}</span>
-          <span className="text-zinc-400 text-sm shrink-0">
-            {uploadData.row_count} rows
-          </span>
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden">
+        <div className="dashboard-card flex shrink-0 items-center gap-3 px-5 py-4">
+          <span className="truncate text-sm font-semibold text-white">{uploadData.filename}</span>
+          <span className="shrink-0 text-sm text-zinc-400">{uploadData.row_count} rows</span>
           <button
             type="button"
-            className="ml-auto text-sm text-zinc-400 hover:text-orange-300 transition shrink-0"
+            className="ml-auto shrink-0 text-sm text-zinc-400 transition hover:text-orange-300"
             onClick={() => setUploadData(null)}
           >
             Upload new file
           </button>
         </div>
-        <ChatInterface
-          uploadData={uploadData}
-          onAddToHistory={addToHistory}
-          initialQuery={replayQuery}
-          onReplayConsumed={() => setReplayQuery(undefined)}
-        />
+
+        <div className="dashboard-card flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ChatInterface
+            uploadData={uploadData}
+            onAddToHistory={addToHistory}
+            initialQuery={replayQuery}
+            onReplayConsumed={() => setReplayQuery(undefined)}
+          />
+        </div>
       </section>
 
-      <aside className="w-72 border-l border-zinc-800 p-4 shrink-0 overflow-y-auto hidden lg:block">
-        <SchemaPreview uploadData={uploadData} />
-        <div className="mt-6">
-          <MetricEditor />
+      <aside className="hidden min-h-0 w-72 shrink-0 flex-col gap-4 overflow-hidden lg:flex">
+        <div className="dashboard-card flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+            <SchemaPreview uploadData={uploadData} />
+          </div>
+        </div>
+        <div className="dashboard-card flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+            <MetricEditor />
+          </div>
         </div>
       </aside>
     </main>
+    </QueryLibraryProvider>
   );
 }

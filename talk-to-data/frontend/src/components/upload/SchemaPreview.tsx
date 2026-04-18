@@ -9,18 +9,18 @@ interface Props {
 export function SchemaPreview({ uploadData }: Props) {
   return (
     <div>
-      <h3 className="text-white text-sm font-medium mb-2">Schema</h3>
-      <p className="text-zinc-500 text-xs mb-3 font-mono break-all">
+      <h3 className="mb-3 text-sm font-semibold text-white">Schema</h3>
+      <p className="mb-3 break-all font-mono text-xs text-[var(--text-muted)]">
         {uploadData.table_name}
       </p>
-      <ul className="space-y-2 max-h-48 overflow-y-auto">
+      <ul className="space-y-2 pr-1">
         {uploadData.columns.map((c) => (
           <li
             key={c.name}
-            className="text-xs text-zinc-400 border border-zinc-800 rounded-lg px-2 py-1.5"
+            className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] px-2.5 py-2 text-xs text-zinc-400"
           >
-            <span className="text-zinc-200 font-mono">{c.name}</span>
-            <span className="text-zinc-600 ml-2">{c.type}</span>
+            <span className="font-mono text-zinc-200">{c.name}</span>
+            <span className="ml-2 text-zinc-600">{c.type}</span>
           </li>
         ))}
       </ul>

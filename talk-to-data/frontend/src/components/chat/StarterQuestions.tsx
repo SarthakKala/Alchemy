@@ -8,15 +8,15 @@ interface Props {
 export function StarterQuestions({ questions, onSelect }: Props) {
   if (!questions.length) return null;
   return (
-    <div className="space-y-2">
-      <p className="text-zinc-500 text-xs uppercase tracking-wide">Try asking</p>
+    <div className="space-y-3">
+      <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Try asking</p>
       <div className="flex flex-wrap gap-2">
         {questions.map((q) => (
           <button
             key={q}
             type="button"
             onClick={() => onSelect(q)}
-            className="text-left text-xs bg-zinc-900 border border-zinc-800 text-zinc-300 px-3 py-2 rounded-lg hover:border-orange-400/60 hover:text-orange-100 transition"
+            className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] px-3 py-2.5 text-left text-xs text-zinc-300 transition hover:border-orange-400/50 hover:text-orange-100"
           >
             {q}
           </button>
