@@ -1,0 +1,97 @@
+# -----------------------------------------------------------------------------
+# Hackathon briefs, build guides & local reference (not committed)
+# Remove or comment these lines if your team wants them in the repository.
+# -----------------------------------------------------------------------------
+NatWest_Hackathon_Guidelines.md
+NatWest_TalkToData_BuildGuide.md
+Alchemy_PersonalProject_ConversionGuide.md
+
+# Hackathon / sponsor PDFs (filename may contain spaces, e.g. "…Hackathon Talk…")
+*Hackathon*.pdf
+*hackathon*.pdf
+**/*Hackathon*.pdf
+**/*hackathon*.pdf
+
+# Personal notes / one-off instructions (optional local-only)
+LOCAL_*.md
+PRIVATE_*.md
+notes/
+instructions/
+scratch/
+
+# -----------------------------------------------------------------------------
+# Environment & secrets
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!**/.env.example
+!.env.local.example
+!**/.env.local.example
+
+# -----------------------------------------------------------------------------
+# Python (backend)
+# -----------------------------------------------------------------------------
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# -----------------------------------------------------------------------------
+# Node.js / Next.js (frontend & tooling)
+# -----------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
+coverage/
+**/coverage/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# -----------------------------------------------------------------------------
+# Databases & local data dumps (adjust if you commit seed DBs)
+# -----------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+!**/.gitkeep
+
+# -----------------------------------------------------------------------------
+# OS & editors
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp
+*.swo
+*~
+
+# Debug / ad-hoc output
+debug.log
+output.txt
+*.log
+
+# -----------------------------------------------------------------------------
+# Assets / uploads that should stay local (optional)
+# -----------------------------------------------------------------------------
+# Uncomment if you store large screenshots or CSVs only on your machine:
+# assets/
+# uploads/
