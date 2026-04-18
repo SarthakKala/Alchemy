@@ -22,7 +22,6 @@ _COMMON_BIGRAMS = frozenset(
     " ox oz ub ud uf uh uk um un up us uw ux uy uz".split()
 )
 
-# If the user clearly uses analytics / question vocabulary, do not block.
 _LEXICON = frozenset(
     """
     what how which why when where who whose show list find get give tell
@@ -33,7 +32,20 @@ _LEXICON = frozenset(
     between among over under above below chart graph plot table column row field
     data metric kpi amount value number percent share ratio distribution highest
     lowest first last more less than equal all each per every some any
+    explain describe display insight overview report filter sort
     """.split()
+)
+
+# If any of these appear as words, we treat the query as plausibly intentional.
+_QUESTION_HINT = re.compile(
+    r"(?i)\b("
+    r"what|how|which|why|when|where|who|whom|whose|show|list|display|find|get|give|tell|"
+    r"explain|describe|compare|summarize|summarise|breakdown|break|total|sum|average|mean|median|"
+    r"count|max|min|top|bottom|revenue|sales|cost|profit|margin|branch|region|product|customer|"
+    r"transaction|chart|graph|plot|table|column|row|filter|sort|group|between|versus|vs|"
+    r"year|month|week|day|quarter|growth|trend|distribution|percentage|ratio|share|amount|"
+    r"value|number|data|metric|kpi|insight|overview|report|dataset|field|record|upload|csv"
+    r")\b"
 )
 
 
@@ -45,44 +57,108 @@ def _bigram_ratio(s: str) -> float:
     return hits / (len(s) - 1)
 
 
+def _max_consonant_run(word: str) -> int:
+    vowels = frozenset("aeiouy")
+    run = max_run = 0
+    for c in word.lower():
+        if c.isalpha() and c not in vowels:
+            run += 1
+            max_run = max(max_run, run)
+        else:
+            run = 0
+    return max_run
+
+
+def _word_plausible(w: str) -> bool:
+    if len(w) <= 2:
+        return True
+    wl = w.lower()
+    vowels = sum(1 for c in wl if c in "aeiouy")
+    if vowels == 0:
+        return False
+    ratio = vowels / len(wl)
+    if len(wl) >= 6 and (ratio < 0.18 or ratio > 0.72):
+        return False
+    if _max_consonant_run(wl) >= 6:
+        return False
+    return True
+
+
 def _heuristic_incoherent(query: str) -> bool:
-    """No-LLM fallback: catch random strings via digram rarity + vocabulary."""
-    qnorm = re.sub(r"[^a-zA-Z\s]", " ", query).lower()
-    qnorm = re.sub(r"\s+", " ", qnorm).strip()
-    if len(qnorm) < 2:
+    """
+    Deterministic gibberish detector. Tuned to fail closed on mash text.
+    """
+    q = (query or "").strip()
+    if len(q) < 2:
         return True
 
-    words = qnorm.split()
+    # Clear intent: common analytics / question vocabulary
+    if _QUESTION_HINT.search(q):
+        return False
+
+    qnorm = re.sub(r"[^a-zA-Z\s]", " ", q).lower()
+    qnorm = re.sub(r"\s+", " ", qnorm).strip()
+    words = [w for w in qnorm.split() if w]
+    if not words:
+        return True
+
     for w in words:
-        if w in _LEXICON or any(lex in w for lex in ("total", "revenue", "what", "how")):
-            return False
-        if len(w) >= 4 and w[:4] in ("what", "how", "show", "list", "find", "sum", "avg"):
+        if w in _LEXICON:
             return False
 
     compact = re.sub(r"\s+", "", qnorm)
-    if len(compact) < 10:
-        return False
-
     ratio = _bigram_ratio(compact)
-    # English-like text typically lands ~0.15–0.35 here; mash strings often < 0.10.
-    return ratio < 0.095
+    plausible_words = sum(1 for w in words if _word_plausible(w))
+
+    # Long random-looking tokens without any question vocabulary
+    if len(words) >= 1 and all(len(w) >= 9 for w in words) and plausible_words == 0:
+        return True
+
+    if plausible_words == 0 and len(compact) >= 8:
+        return True
+
+    # Low English digram density (keyboard mash / random caps)
+    if len(compact) >= 10 and ratio < 0.10:
+        return True
+
+    # Longer strings with weak English-like digrams
+    if len(compact) >= 14 and ratio < 0.108:
+        return True
+
+    # Mostly implausible “words” and weak bigram signal
+    if len(words) >= 2 and plausible_words <= len(words) // 2 and ratio < 0.115:
+        return True
+
+    # No question words: multiple chunky tokens only (typical mash / random caps)
+    if not _QUESTION_HINT.search(q) and len(words) >= 2:
+        lengths = [len(w) for w in words]
+        avg_len = sum(lengths) / len(lengths)
+        if min(lengths) >= 6 and avg_len >= 9 and max(lengths) >= 10:
+            return True
+
+    # Single very long blob (no spaces) of nonsense
+    if len(words) == 1 and len(words[0]) >= 18 and ratio < 0.12:
+        return True
+
+    return False
 
 
 _COHERENCE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You gate messages for a CSV analytics chatbot.
+            """You gate messages for a CSV / spreadsheet analytics chatbot.
 
-Reply with ONLY valid JSON on one line: {"coherent":true} or {"coherent":false}
+Output ONLY one JSON object on one line: {{"coherent":true}} or {{"coherent":false}}
 
-coherent=true:
-  The user is trying to ask something about their data — numbers, categories,
-  comparisons, filters, trends, summaries, even with typos or short phrasing.
+Set coherent=FALSE when ANY of these hold:
+- Random letters, keyboard mashing, or meaningless tokens (e.g. RAHUCIL ARUEBASILB GASRLUISRGAFBGSH)
+- No recognizable attempt to ask about numbers, categories, tables, metrics, time, or comparisons
+- Only nonsense words that are not English (or clearly garbled beyond typos)
 
-coherent=false:
-  Random keyboard input, meaningless letter sequences, obvious spam with no
-  question about data, or strings that are not language attempting a question.""",
+Set coherent=TRUE ONLY when the user clearly tries to ask about data in readable words — including informal English and typos.
+
+When unsure, prefer {{"coherent":false}}.""",
         ),
         ("human", "{query}"),
     ]
@@ -98,7 +174,6 @@ def _llm_coherent(query: str) -> bool:
     )
     chain = _COHERENCE_PROMPT | llm | StrOutputParser()
     raw = chain.invoke({"query": query}).strip()
-    # Strip markdown fences if any
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
     m = re.search(r"\{[^}]+\}", raw)
@@ -138,17 +213,18 @@ def check_query_coherence(state: GraphState) -> GraphState:
     if not q:
         return _incoherent_payload(state)
 
-    coherent = True
-    try:
-        if settings.OPENROUTER_API_KEY:
-            coherent = _llm_coherent(q)
-        else:
-            coherent = not _heuristic_incoherent(q)
-    except Exception as e:
-        logger.warning("Coherence check failed (%s); falling back to heuristic.", e)
-        coherent = not _heuristic_incoherent(q)
-
-    if not coherent:
+    # 1) Deterministic gate always runs first — catches mash before any LLM can wrongly approve.
+    if _heuristic_incoherent(q):
+        logger.info("Query rejected by heuristic incoherence gate.")
         return _incoherent_payload(state)
+
+    # 2) Optional LLM second opinion when API key present (must also pass).
+    if settings.OPENROUTER_API_KEY:
+        try:
+            if not _llm_coherent(q):
+                logger.info("Query rejected by LLM coherence gate.")
+                return _incoherent_payload(state)
+        except Exception as e:
+            logger.warning("LLM coherence failed (%s); accepting heuristic pass only.", e)
 
     return {**state, "incoherent": False}

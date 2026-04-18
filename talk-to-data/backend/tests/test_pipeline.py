@@ -58,6 +58,7 @@ def test_heuristic_flags_obvious_gibberish():
     from app.graph.nodes.query_coherence import _heuristic_incoherent
 
     assert _heuristic_incoherent("ulhumhuhawe fblsef hlbfELGABS") is True
+    assert _heuristic_incoherent("RAHUCIL ARUEBASILB GASRLUISRGAFBGSH") is True
 
 
 def test_heuristic_allows_plain_questions():
@@ -65,6 +66,21 @@ def test_heuristic_allows_plain_questions():
 
     assert _heuristic_incoherent("What is total revenue by branch?") is False
     assert _heuristic_incoherent("Show breakdown of sales by region") is False
+
+
+def test_coherence_node_sets_incoherent_for_mash():
+    from app.graph.nodes.query_coherence import check_query_coherence
+
+    out = check_query_coherence({"user_query": "RAHUCIL ARUEBASILB GASRLUISRGAFBGSH"})
+    assert out.get("incoherent") is True
+    assert "couldn't interpret" in (out.get("answer_text") or "").lower()
+
+
+def test_coherence_node_passes_real_question():
+    from app.graph.nodes.query_coherence import check_query_coherence
+
+    out = check_query_coherence({"user_query": "What is total revenue by branch?"})
+    assert out.get("incoherent") is False
 
 
 def test_sql_validator_allows_select():
